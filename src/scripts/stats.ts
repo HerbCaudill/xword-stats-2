@@ -1,12 +1,11 @@
 import { LocalDate } from '@js-joda/core'
-import { getStatsForDateRange, getStatsForYear } from '../lib/getStats.ts'
-
-import dotenv from 'dotenv'
-dotenv.config()
+import { getStats } from '../lib/getStats.ts'
 
 const subscriberId = process.env.NYT_SUBSCRIBER_ID
 if (!subscriberId) throw new Error('NYT_SUBSCRIBER_ID environment variable is not set')
 
-const data = await getStatsForDateRange(LocalDate.parse('2023-01-01'), LocalDate.parse('2025-12-31'), subscriberId)
+const data = await getStats({
+  startDate: LocalDate.parse('2016-01-01'),
+})
 
 console.log(data)
