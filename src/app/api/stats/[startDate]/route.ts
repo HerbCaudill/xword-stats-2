@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getStats } from '@/lib/getStats'
 
 type RouteParams = {
-  params: {
+  params: Promise<{
     startDate: string
-  }
+  }>
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
@@ -16,14 +16,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'NYT_SUBSCRIBER_ID environment variable is not set' }, { status: 500 })
 
     // Parse the start date from the path parameter
+    const { startDate: startDateParam } = await params
     let startDate: LocalDate
     try {
-      startDate = LocalDate.parse(params.startDate)
+      startDate = LocalDate.parse(startDateParam)
     } catch (error) {
       return NextResponse.json({ error: 'Invalid date format. Use ISO format (YYYY-MM-DD)' }, { status: 400 })
     }
 
-    const stats = await getStats({ startDate, subscriberId })
+    const stats = await getStats({ startDate })
 
     // Return stats as JSON response
     return NextResponse.json(stats)
