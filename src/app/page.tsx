@@ -178,7 +178,7 @@ export default function HistoryPage() {
   }))
 
   return (
-    <div ref={containerRef} className="max-w-5xl mx-auto p-4">
+    <div ref={containerRef} className="max-w-5xl mx-auto p-2">
       <div className="mb-6">
         {/* Legend */}
         <div className="mt-4">
@@ -186,7 +186,7 @@ export default function HistoryPage() {
             {Object.entries(dayNames).map(([dayNum, dayName]) => (
               <div
                 key={dayNum}
-                className={cx(`flex items-center gap-1 cursor-pointer px-2 py-1 rounded hover:bg-gray-100 border`, {
+                className={cx(`flex items-center gap-1 cursor-pointer p-1 rounded hover:bg-gray-100 border`, {
                   'border-white': selectedDay !== Number(dayNum),
                   'border-gray-300': selectedDay === Number(dayNum),
                 })}
