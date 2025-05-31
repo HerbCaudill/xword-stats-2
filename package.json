@@ -12,6 +12,7 @@
   "dependencies": {
     "@js-joda/core": "^5.6.5",
     "@js-joda/locale_en-us": "^4.15.1",
+    "classnames": "^2.5.1",
     "dotenv": "^16.5.0",
     "next": "15.3.3",
     "react": "^19.0.0",

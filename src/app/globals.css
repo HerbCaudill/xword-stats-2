@@ -1,5 +1,25 @@
 @import 'tailwindcss';
 
+@theme {
+  --text-3xs: calc(10 * 1rem / 16); /* 10px */
+  --text-2xs: calc(11 * 1rem / 16); /* 11px */
+  --text-xs: calc(12 * 1rem / 16); /* 12px */
+  --text-sm: calc(13 * 1rem / 16); /* 13px */
+  --text-base: calc(14 * 1rem / 16); /* 14px */
+  --text-lg: calc(16 * 1rem / 16); /* 16px*/
+  --text-xl: calc(18 * 1rem / 16); /* 18px */
+  --text-2xl: calc(20 * 1rem / 16); /* 20px */
+  --text-3xl: calc(22 * 1rem / 16); /* 22px */
+  --text-4xl: calc(24 * 1rem / 16); /* 24px */
+  --text-5xl: calc(28 * 1rem / 16); /* 28px */
+  --text-6xl: calc(34 * 1rem / 16); /* 34px */
+  --text-7xl: calc(40 * 1rem / 16); /* 40px   */
+  --text-8xl: calc(48 * 1rem / 16); /* 48px   */
+  --text-9xl: calc(60 * 1rem / 16); /* 60px */
+  --text-10xl: calc(72 * 1rem / 16); /* 72px */
+  --text-11xl: calc(96 * 1rem / 16); /* 96px */
+}
+
 @layer base {
   body {
     background: var(--background);
