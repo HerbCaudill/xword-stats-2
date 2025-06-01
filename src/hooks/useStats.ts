@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react'
-import { LocalDate } from '@js-joda/core'
-import { hydrate } from '../lib/hydrate'
-import type { PuzzleStat } from '@/types'
 import _persistedStats from '@/data/puzzleStats.json'
-import { mergeStats } from '../lib/mergeStats'
+import { hydrate } from '@/lib/hydrate'
+import { mergeStats } from '@/lib/mergeStats'
+import type { PuzzleStat } from '@/types'
+import { LocalDate } from '@js-joda/core'
+import { useEffect, useState } from 'react'
 const persistedStats = hydrate(_persistedStats)
 
 const beginningOfTime = LocalDate.parse('2017-07-01')
 
 export const usePuzzleStats = () => {
-  const [stats, setStats] = useState<PuzzleStat[]>([])
+  const [stats, setStats] = useState<PuzzleStat[]>(persistedStats)
 
   useEffect(() => {
     async function fetchData() {
