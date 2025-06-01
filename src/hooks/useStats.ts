@@ -2,10 +2,19 @@ import { useState, useEffect } from 'react'
 import { LocalDate } from '@js-joda/core'
 import { hydrate } from './hydrate'
 import type { PuzzleStat } from '@/types'
+import persistedStats from '@/data/puzzleStats.json'
 
 const beginningOfTime = LocalDate.parse('2017-07-01')
 
 export const usePuzzleStats = () => {
+  const getInitialStats = () => {
+    const cachedStatsString = localStorage.getItem('puzzleStats')
+    if (cachedStatsString) {
+      return hydrate(JSON.parse(cachedStatsString))
+    }
+    return hydrate(persistedStats)
+  }
+
   const [stats, setStats] = useState<PuzzleStat[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -14,40 +23,32 @@ export const usePuzzleStats = () => {
     async function fetchData() {
       setLoading(true)
       try {
-        // Try to get stats from localStorage
-        const cachedStatsString = localStorage.getItem('puzzleStats')
-        let cachedStats: PuzzleStat[] = []
-        let mostRecentDate: LocalDate = beginningOfTime
+        const initialStats = getInitialStats()
 
-        if (cachedStatsString) {
-          cachedStats = hydrate(JSON.parse(cachedStatsString))
-          setStats(cachedStats)
-
-          // Find the most recent date in cached stats
-          if (cachedStats.length > 0) {
-            // Sort by date descending to get the most recent
-            const sortedDates = [...cachedStats].sort((a, b) => b.date.compareTo(a.date))
-            mostRecentDate = sortedDates[0].date
-          }
-        }
+        const mostRecentDate = initialStats.reduce(
+          (latest, stat) => (stat.date.isAfter(latest) ? stat.date : latest),
+          beginningOfTime
+        )
 
         // If we have cached data and the most recent date is today, no need to fetch
         const today = LocalDate.now()
         if (mostRecentDate && mostRecentDate.isEqual(today)) {
           console.log('Using cached stats, no need to fetch new data')
+          setStats(initialStats)
           setLoading(false)
           return
         }
 
         const nextDate = mostRecentDate.plusDays(1).toString()
         // Fetch new data from the API
+        console.log(`Fetching stats for date: ${nextDate}`)
         const response = await fetch(`/api/stats/${nextDate}`)
         if (!response.ok) throw new Error(`API returned ${response.status}: ${await response.text()}`)
 
         const newStats = await response.json()
 
         // Combine cached stats with new stats
-        const combinedStats = [...cachedStats, ...hydrate(newStats)]
+        const combinedStats = [...initialStats, ...hydrate(newStats)]
 
         // Remove any duplicates by date
         const uniqueStats = combinedStats.reduce((acc: PuzzleStat[], curr) => {

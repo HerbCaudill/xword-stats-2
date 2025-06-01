@@ -76,11 +76,11 @@ export default function HistoryPage() {
   const dates = filteredStats.map(stat => stat.date)
   const times = filteredStats.map(stat => stat.time)
 
-  const minYear = Math.min(...dates.map(d => d.year()))
-  const maxYear = Math.max(...dates.map(d => d.year()))
+  const minYear = Math.min(2017, ...dates.map(d => d.year()))
+  const maxYear = LocalDate.now().year()
 
   const minDate = LocalDate.of(minYear, 1, 1).toEpochDay()
-  const maxDate = LocalDate.of(maxYear, 12, 31).toEpochDay()
+  const maxDate = LocalDate.now().toEpochDay()
   const maxTimeForScale = Math.max(...times)
 
   const logMin = Math.log(minTimeForScale)
