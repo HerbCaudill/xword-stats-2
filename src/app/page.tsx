@@ -37,9 +37,9 @@ const dayNames = {
   7: 'Sun',
 }
 
-const chartHeight = 400
-const chartWidth = 800 // Fixed internal width
-const padding = { top: 0, right: 10, bottom: 40, left: 40 }
+const chartHeight = 800 // Swapped: now height is larger
+const chartWidth = 400 // Swapped: now width is smaller
+const padding = { top: 40, right: 40, bottom: 10, left: 60 } // Adjusted padding for new layout
 const minTimeForScale = 180
 
 export default function HistoryPage() {
@@ -84,34 +84,34 @@ export default function HistoryPage() {
   const logMin = Math.log(minTimeForScale)
   const logMax = Math.log(maxTimeForScale)
 
-  // Scale functions
-  const scaleX = (date: LocalDate) => ((date.toEpochDay() - minDate) / (maxDate - minDate)) * plotWidth
+  // Scale functions - SWAPPED
+  const scaleX = (time: number) => ((Math.log(time) - logMin) / (logMax - logMin)) * plotWidth
 
-  const scaleY = (time: number) => plotHeight - ((Math.log(time) - logMin) / (logMax - logMin)) * plotHeight
+  const scaleY = (date: LocalDate) => ((date.toEpochDay() - minDate) / (maxDate - minDate)) * plotHeight
 
   // Generate tick marks
-  // X-axis: Years
+  // Y-axis: Years (now vertical)
   const years = Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i)
 
   // Filter stats based on selected day
   const dayFilteredStats =
     selectedDay === null ? filteredStats : filteredStats.filter(stat => stat.date.dayOfWeek().value() === selectedDay)
 
-  const xTickPositions = years.map(year => {
+  const yTickPositions = years.map(year => {
     const yearStart = LocalDate.of(year, 1, 1)
     const yearStats = dayFilteredStats.filter(stat => stat.date.year() === year)
     const yearCount = yearStats.length
     const yearAvgTime = yearCount > 0 ? Math.round(yearStats.reduce((sum, stat) => sum + stat.time, 0) / yearCount) : 0
 
     return {
-      x: scaleX(yearStart),
+      y: scaleY(yearStart),
       year: year,
       count: yearCount,
       avgTime: yearAvgTime,
     }
   })
 
-  // Y-axis: Logarithmic scale with nice round numbers
+  // X-axis: Logarithmic scale with nice round numbers (now horizontal)
   // Generate logarithmic tick marks (1, 2, 5, 10, 20, 50 minutes, etc.)
   const logTickValues = []
   const baseValues = [1, 2, 5]
@@ -124,8 +124,8 @@ export default function HistoryPage() {
     }
   }
 
-  const yTickPositions = logTickValues.map(time => ({
-    y: plotHeight - ((Math.log(time) - logMin) / (logMax - logMin)) * plotHeight,
+  const xTickPositions = logTickValues.map(time => ({
+    x: ((Math.log(time) - logMin) / (logMax - logMin)) * plotWidth,
     time: time,
   }))
 
@@ -168,20 +168,7 @@ export default function HistoryPage() {
         >
           {/* Grid lines */}
           <g>
-            {/* Vertical grid lines */}
-            {xTickPositions.map((tick, i) => (
-              <line
-                key={`x-grid-${i}`}
-                x1={padding.left + tick.x}
-                y1={padding.top}
-                x2={padding.left + tick.x}
-                y2={padding.top + plotHeight}
-                stroke={color.axis}
-                strokeWidth={1}
-              />
-            ))}
-
-            {/* Horizontal grid lines */}
+            {/* Horizontal grid lines (for years) */}
             {yTickPositions.map((tick, i) => (
               <line
                 key={`y-grid-${i}`}
@@ -189,6 +176,19 @@ export default function HistoryPage() {
                 y1={padding.top + tick.y}
                 x2={padding.left + plotWidth}
                 y2={padding.top + tick.y}
+                stroke={color.axis}
+                strokeWidth={1}
+              />
+            ))}
+
+            {/* Vertical grid lines (for times) */}
+            {xTickPositions.map((tick, i) => (
+              <line
+                key={`x-grid-${i}`}
+                x1={padding.left + tick.x}
+                y1={padding.top}
+                x2={padding.left + tick.x}
+                y2={padding.top + plotHeight}
                 stroke={color.gridLines}
                 strokeWidth={1}
               />
@@ -209,8 +209,8 @@ export default function HistoryPage() {
                 return (
                   <circle
                     key={i}
-                    cx={padding.left + scaleX(stat.date)}
-                    cy={padding.top + scaleY(stat.time)}
+                    cx={padding.left + scaleX(stat.time)}
+                    cy={padding.top + scaleY(stat.date)}
                     r={getPointRadius(stat.date.dayOfWeek().value(), isHovered)}
                     fill={getPointColor(stat.date.dayOfWeek().value())}
                     stroke="transparent"
@@ -223,8 +223,8 @@ export default function HistoryPage() {
                     onPointerEnter={e => {
                       if (selectedDay === null || selectedDay === stat.date.dayOfWeek().value()) {
                         setTooltip({
-                          x: padding.left + scaleX(stat.date),
-                          y: padding.top + scaleY(stat.time),
+                          x: padding.left + scaleX(stat.time),
+                          y: padding.top + scaleY(stat.date),
                           date: stat.date,
                           time: stat.time,
                         })
@@ -240,33 +240,33 @@ export default function HistoryPage() {
 
           {/* Average time lines for each year */}
           <g>
-            {xTickPositions.map((tick, i) => {
+            {yTickPositions.map((tick, i) => {
               if (tick.count === 0) return null
 
-              const nextTick = xTickPositions[i + 1]
-              const lineStartX = tick.x
-              const lineEndX = nextTick ? nextTick.x : plotWidth
-              const lineY = scaleY(tick.avgTime)
+              const nextTick = yTickPositions[i + 1]
+              const lineStartY = tick.y
+              const lineEndY = nextTick ? nextTick.y : plotHeight
+              const lineX = scaleX(tick.avgTime)
               const lineColor = selectedDay === null ? colors.gray['800'] : getColor(selectedDay)
 
               return (
                 <g key={`avg-group-${i}-${selectedDay || 'all'}`}>
-                  {/* Translucent box from average line to x-axis */}
+                  {/* Translucent box from average line to y-axis */}
                   <rect
-                    x={padding.left + lineStartX}
-                    y={padding.top + lineY}
-                    width={lineEndX - lineStartX}
-                    height={plotHeight - lineY}
+                    x={padding.left}
+                    y={padding.top + lineStartY}
+                    width={lineX}
+                    height={lineEndY - lineStartY}
                     fill={lineColor}
                     opacity={0.1}
                     style={{ pointerEvents: 'none' }}
                   />
                   {/* Average line */}
                   <line
-                    x1={padding.left + lineStartX}
-                    y1={padding.top + lineY}
-                    x2={padding.left + lineEndX}
-                    y2={padding.top + lineY}
+                    x1={padding.left + lineX}
+                    y1={padding.top + lineStartY}
+                    x2={padding.left + lineX}
+                    y2={padding.top + lineEndY}
                     stroke={lineColor}
                     strokeWidth={1}
                     style={{ pointerEvents: 'none' }}
@@ -276,7 +276,7 @@ export default function HistoryPage() {
             })}
           </g>
 
-          {/* X-axis */}
+          {/* X-axis (bottom) */}
           <line
             x1={padding.left}
             y1={padding.top + plotHeight}
@@ -286,7 +286,7 @@ export default function HistoryPage() {
             strokeWidth={1}
           />
 
-          {/* Y-axis */}
+          {/* Y-axis (left) */}
           <line
             x1={padding.left}
             y1={padding.top}
@@ -296,15 +296,15 @@ export default function HistoryPage() {
             strokeWidth={1}
           />
 
-          {/* Y-axis labels */}
+          {/* X-axis labels (time labels at bottom) */}
           <g>
-            {yTickPositions.map((tick, i) => (
-              <g key={`y-label-${i}`}>
+            {xTickPositions.map((tick, i) => (
+              <g key={`x-label-${i}`}>
                 {tick.time > 0 ? (
                   <text
-                    x={padding.left - 10}
-                    y={padding.top + tick.y + 4}
-                    textAnchor="end"
+                    x={padding.left + tick.x}
+                    y={padding.top + plotHeight + 25}
+                    textAnchor="middle"
                     fontSize="12"
                     fill="#374151"
                   >
@@ -315,17 +315,17 @@ export default function HistoryPage() {
             ))}
           </g>
 
-          {/* X-axis labels */}
+          {/* Y-axis labels (year labels on left) */}
           <g>
-            {xTickPositions.map((tick, i) => (
+            {yTickPositions.map((tick, i) => (
               <foreignObject
-                key={`x-label-${i}-${selectedDay || 'all'}`}
-                x={padding.left + tick.x - 25}
-                y={padding.top + plotHeight + 5}
+                key={`y-label-${i}-${selectedDay || 'all'}`}
+                x={padding.left - 55}
+                y={padding.top + tick.y - 17}
                 width="50"
                 height="35"
               >
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-end">
                   <div className="font-bold text-xs text-gray-800">{tick.year}</div>
                   {tick.count > 0 ? (
                     <div className="text-gray-500 text-2xs">
