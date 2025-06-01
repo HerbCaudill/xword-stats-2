@@ -37,9 +37,9 @@ const dayNames = {
   7: 'Sun',
 }
 
-const chartHeight = 800 // Swapped: now height is larger
-const chartWidth = 400 // Swapped: now width is smaller
-const padding = { top: 40, right: 40, bottom: 10, left: 60 } // Adjusted padding for new layout
+const chartHeight = 750
+const chartWidth = 500
+const padding = { top: 0, right: 10, bottom: 0, left: 45 }
 const minTimeForScale = 180
 
 export default function HistoryPage() {
@@ -54,7 +54,7 @@ export default function HistoryPage() {
     if (selectedDay === null || selectedDay === dayOfWeek) {
       return getColor(dayOfWeek)
     }
-    return '#cccccc' // Gray out unselected days
+    return colors.gray[500]
   }
 
   const getPointRadius = (dayOfWeek: number, isHovered: boolean = false) => {
@@ -130,42 +130,33 @@ export default function HistoryPage() {
   }))
 
   return (
-    <div ref={containerRef} className="">
-      <div className="mb-6">
-        {/* Legend */}
-        <div className="flex flex-wrap gap-1 p-2">
-          {Object.entries(dayNames).map(([dayNum, dayName]) => (
+    <div ref={containerRef} className="flex flex-col h-screen w-full gap-2 max-w-xl ">
+      {/* Legend */}
+      <div className="flex flex-wrap gap-1 p-2">
+        {Object.entries(dayNames).map(([dayNum, dayName]) => (
+          <div
+            key={dayNum}
+            className={cx(`flex items-center gap-1 cursor-pointer p-1 rounded hover:bg-gray-100 border`, {
+              'border-white': selectedDay !== Number(dayNum),
+              'border-gray-300': selectedDay === Number(dayNum),
+            })}
+            onClick={() => {
+              if (selectedDay === Number(dayNum)) setSelectedDay(null)
+              else setSelectedDay(Number(dayNum))
+            }}
+          >
             <div
-              key={dayNum}
-              className={cx(`flex items-center gap-1 cursor-pointer p-1 rounded hover:bg-gray-100 border`, {
-                'border-white': selectedDay !== Number(dayNum),
-                'border-gray-300': selectedDay === Number(dayNum),
-              })}
-              onClick={() => {
-                if (selectedDay === Number(dayNum)) setSelectedDay(null)
-                else setSelectedDay(Number(dayNum))
+              className="w-3 h-3 rounded-full"
+              style={{
+                backgroundColor: selectedDay === null || selectedDay === Number(dayNum) ? getColor(dayNum) : '#cccccc',
               }}
-            >
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{
-                  backgroundColor:
-                    selectedDay === null || selectedDay === Number(dayNum) ? getColor(dayNum) : '#cccccc',
-                }}
-              />
-              <span className="text-xs">{dayName}</span>
-            </div>
-          ))}
-        </div>
+            />
+            <span className="text-xs">{dayName}</span>
+          </div>
+        ))}
       </div>
       <div className="relative">
-        <svg
-          width="100%"
-          height="auto"
-          viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-          className="w-full"
-          preserveAspectRatio="xMidYMid meet"
-        >
+        <svg width="100%" height="100%" viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-full">
           {/* Grid lines */}
           <g>
             {/* Horizontal grid lines (for years) */}
@@ -321,7 +312,7 @@ export default function HistoryPage() {
               <foreignObject
                 key={`y-label-${i}-${selectedDay || 'all'}`}
                 x={padding.left - 55}
-                y={padding.top + tick.y - 17}
+                y={padding.top + tick.y}
                 width="50"
                 height="35"
               >
