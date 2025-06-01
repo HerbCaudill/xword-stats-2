@@ -2,9 +2,10 @@
 
 import { usePuzzleStats } from '@/hooks/useStats'
 import { LocalDate } from '@js-joda/core'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import colors from 'tailwindcss/colors'
 import cx from 'classnames'
+import { removeOutliers } from '../lib/removeOutliers'
 
 const color = {
   axis: colors.gray[300],
@@ -37,66 +38,17 @@ const dayNames = {
 }
 
 const chartHeight = 400
-const padding = { top: 20, right: 20, bottom: 40, left: 40 }
+const chartWidth = 800 // Fixed internal width
+const padding = { top: 0, right: 10, bottom: 40, left: 40 }
 const minTimeForScale = 180
 
 export default function HistoryPage() {
   const { stats, loading, error } = usePuzzleStats()
   const containerRef = useRef<HTMLDivElement>(null)
-  const [chartWidth, setChartWidth] = useState(800)
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
   const [tooltip, setTooltip] = useState<{ x: number; y: number; date: LocalDate; time: number } | null>(null)
 
-  // Remove outliers by day of the week using IQR method
-  const removeOutliers = (data: typeof stats) => {
-    const statsByDay: { [key: number]: typeof stats } = {}
-
-    // Group stats by day of week
-    data.forEach(stat => {
-      const day = stat.date.dayOfWeek().value()
-      if (!statsByDay[day]) statsByDay[day] = []
-      statsByDay[day].push(stat)
-    })
-
-    const filteredStats: typeof stats = []
-
-    // Remove outliers for each day
-    Object.entries(statsByDay).forEach(([day, dayStats]) => {
-      const times = dayStats.map(s => s.time).sort((a, b) => a - b)
-      const q1Index = Math.floor(times.length * 0.25)
-      const q3Index = Math.floor(times.length * 0.75)
-      const q1 = times[q1Index]
-      const q3 = times[q3Index]
-      const iqr = q3 - q1
-      const upperBound = q3 + 1.5 * iqr
-
-      // Only remove upper outliers (longest times)
-      const filtered = dayStats.filter(stat => stat.time <= upperBound)
-      filteredStats.push(...filtered)
-    })
-
-    return filteredStats
-  }
-
   const filteredStats = removeOutliers(stats)
-
-  useLayoutEffect(() => {
-    const updateWidth = () => {
-      if (containerRef.current) {
-        const containerWidth = containerRef.current.clientWidth
-        setChartWidth(Math.max(400, containerWidth - 32)) // Min width 400px, account for container padding
-      }
-    }
-
-    // Initial measurement with a small delay to ensure DOM is ready
-    const timer = setTimeout(updateWidth, 5)
-
-    window.addEventListener('resize', updateWidth)
-    return () => {
-      clearTimeout(timer)
-      window.removeEventListener('resize', updateWidth)
-    }
-  }, [])
 
   const getPointColor = (dayOfWeek: number) => {
     if (selectedDay === null || selectedDay === dayOfWeek) {
@@ -178,38 +130,42 @@ export default function HistoryPage() {
   }))
 
   return (
-    <div ref={containerRef} className="max-w-5xl mx-auto p-2">
+    <div ref={containerRef} className="">
       <div className="mb-6">
         {/* Legend */}
-        <div className="mt-4">
-          <div className="flex flex-wrap gap-1">
-            {Object.entries(dayNames).map(([dayNum, dayName]) => (
+        <div className="flex flex-wrap gap-1 p-2">
+          {Object.entries(dayNames).map(([dayNum, dayName]) => (
+            <div
+              key={dayNum}
+              className={cx(`flex items-center gap-1 cursor-pointer p-1 rounded hover:bg-gray-100 border`, {
+                'border-white': selectedDay !== Number(dayNum),
+                'border-gray-300': selectedDay === Number(dayNum),
+              })}
+              onClick={() => {
+                if (selectedDay === Number(dayNum)) setSelectedDay(null)
+                else setSelectedDay(Number(dayNum))
+              }}
+            >
               <div
-                key={dayNum}
-                className={cx(`flex items-center gap-1 cursor-pointer p-1 rounded hover:bg-gray-100 border`, {
-                  'border-white': selectedDay !== Number(dayNum),
-                  'border-gray-300': selectedDay === Number(dayNum),
-                })}
-                onClick={() => {
-                  if (selectedDay === Number(dayNum)) setSelectedDay(null)
-                  else setSelectedDay(Number(dayNum))
+                className="w-3 h-3 rounded-full"
+                style={{
+                  backgroundColor:
+                    selectedDay === null || selectedDay === Number(dayNum) ? getColor(dayNum) : '#cccccc',
                 }}
-              >
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{
-                    backgroundColor:
-                      selectedDay === null || selectedDay === Number(dayNum) ? getColor(dayNum) : '#cccccc',
-                  }}
-                />
-                <span className="text-xs">{dayName}</span>
-              </div>
-            ))}
-          </div>
+              />
+              <span className="text-xs">{dayName}</span>
+            </div>
+          ))}
         </div>
       </div>
       <div className="relative">
-        <svg width={chartWidth} height={chartHeight} className="w-full max-w-full">
+        <svg
+          width="100%"
+          height="auto"
+          viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+          className="w-full"
+          preserveAspectRatio="xMidYMid meet"
+        >
           {/* Grid lines */}
           <g>
             {/* Vertical grid lines */}
@@ -359,45 +315,36 @@ export default function HistoryPage() {
             ))}
           </g>
 
-          {/* Tooltip line */}
-          {/* {tooltip && (
-            <line
-              x1={tooltip.x}
-              y1={tooltip.y}
-              x2={tooltip.x}
-              y2={tooltip.y - 20}
-              stroke={colors.gray[800]}
-              strokeWidth={1}
-            />
-          )} */}
+          {/* X-axis labels */}
+          <g>
+            {xTickPositions.map((tick, i) => (
+              <foreignObject
+                key={`x-label-${i}-${selectedDay || 'all'}`}
+                x={padding.left + tick.x - 25}
+                y={padding.top + plotHeight + 5}
+                width="50"
+                height="35"
+              >
+                <div className="flex flex-col items-center">
+                  <div className="font-bold text-xs text-gray-800">{tick.year}</div>
+                  {tick.count > 0 ? (
+                    <div className="text-gray-500 text-2xs">
+                      {Math.floor(tick.avgTime / 60)}:{(tick.avgTime % 60).toString().padStart(2, '0')}
+                    </div>
+                  ) : null}
+                </div>
+              </foreignObject>
+            ))}
+          </g>
         </svg>
-
-        {/* X-axis labels as HTML */}
-        {xTickPositions.map((tick, i) => (
-          <div
-            key={`x-label-html-${i}-${selectedDay || 'all'}`}
-            className="absolute "
-            style={{
-              left: padding.left + tick.x,
-              top: padding.top + plotHeight + 5,
-            }}
-          >
-            <div className="font-bold text-xs text-gray-800">{tick.year}</div>
-            {tick.count > 0 ? (
-              <div className="text-gray-500 text-2xs">
-                {Math.floor(tick.avgTime / 60)}:{(tick.avgTime % 60).toString().padStart(2, '0')}
-              </div>
-            ) : null}
-          </div>
-        ))}
 
         {/* Tooltip */}
         {tooltip && (
           <div
             className="absolute bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none z-10"
             style={{
-              left: tooltip.x,
-              top: tooltip.y - 10,
+              left: `${(tooltip.x / chartWidth) * 100}%`,
+              top: `${((tooltip.y - 10) / chartHeight) * 100}%`,
               transform: 'translate(-50%, -100%)',
             }}
           >
