@@ -1,7 +1,7 @@
 'use client'
 
 import { usePuzzleStats } from '@/hooks/useStats'
-import { LocalDate } from '@js-joda/core'
+import { DayOfWeek, LocalDate, TemporalAdjusters } from '@js-joda/core'
 import { useRef, useState } from 'react'
 import colors from 'tailwindcss/colors'
 import cx from 'classnames'
@@ -40,7 +40,7 @@ const dayNames = {
 
 const chartHeight = 750
 const chartWidth = 500
-const padding = { top: 0, right: 10, bottom: 0, left: 45 }
+const padding = { top: 0, right: 10, bottom: 10, left: 45 }
 const minTimeForScale = 180
 
 export default function HistoryPage() {
@@ -76,16 +76,18 @@ export default function HistoryPage() {
   const maxYear = LocalDate.now().year()
 
   const minDate = LocalDate.of(minYear, 1, 1).toEpochDay()
-  const maxDate = LocalDate.now().toEpochDay()
+  const maxDate = LocalDate.now().withDayOfYear(365).toEpochDay()
   const maxTimeForScale = Math.max(...times)
 
   const logMin = Math.log(minTimeForScale)
   const logMax = Math.log(maxTimeForScale)
 
-  // Scale functions - SWAPPED
   const scaleX = (time: number) => ((Math.log(time) - logMin) / (logMax - logMin)) * plotWidth
 
-  const scaleY = (date: LocalDate) => ((date.toEpochDay() - minDate) / (maxDate - minDate)) * plotHeight
+  const scaleY = (date: LocalDate) => {
+    const monday = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+    return ((monday.toEpochDay() - minDate) / (maxDate - minDate)) * plotHeight
+  }
 
   // Generate tick marks
   // Y-axis: Years (now vertical)
@@ -129,7 +131,7 @@ export default function HistoryPage() {
     }
   })
 
-  // X-axis: Logarithmic scale with nice round numbers (now horizontal)
+  // X-axis: Logarithmic scale with nice round numbers
   // Generate logarithmic tick marks (1, 2, 5, 10, 20, 50 minutes, etc.)
   const logTickValues = []
   const baseValues = [1, 2, 5]
