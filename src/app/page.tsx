@@ -40,7 +40,7 @@ const dayNames = {
 
 const chartHeight = 750
 const chartWidth = 500
-const padding = { top: 0, right: 10, bottom: 10, left: 45 }
+const padding = { top: 20, right: 10, bottom: 50, left: 45 }
 const minTimeForScale = 180
 
 export default function HistoryPage() {
@@ -256,7 +256,6 @@ export default function HistoryPage() {
                         fill="none"
                         stroke={getPointColor(dayOfWeek)}
                         strokeWidth={2}
-                        opacity={0.6}
                         style={{ pointerEvents: 'none' }}
                       />
                     )}
@@ -327,17 +326,9 @@ export default function HistoryPage() {
           <g>
             {xTickPositions.map((tick, i) => (
               <g key={`x-label-${i}`}>
-                {tick.time > 0 ? (
-                  <text
-                    x={padding.left + tick.x}
-                    y={padding.top + plotHeight + 25}
-                    textAnchor="middle"
-                    fontSize="12"
-                    fill="#374151"
-                  >
-                    {tick.time / 60}
-                  </text>
-                ) : null}
+                <text x={padding.left + tick.x} y={10} textAnchor="middle" className="text-2xs" fill={color.text}>
+                  {tick.time > 0 ? `${tick.time / 60} ${i === xTickPositions.length - 1 ? 'min' : ''}` : null}
+                </text>
               </g>
             ))}
           </g>
