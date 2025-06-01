@@ -44,7 +44,7 @@ const padding = { top: 0, right: 10, bottom: 0, left: 45 }
 const minTimeForScale = 180
 
 export default function HistoryPage() {
-  const { stats, loading, error } = usePuzzleStats()
+  const { stats } = usePuzzleStats()
   const containerRef = useRef<HTMLDivElement>(null)
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
   const [tooltip, setTooltip] = useState<{ x: number; y: number; date: LocalDate; time: number } | null>(null)
@@ -63,10 +63,6 @@ export default function HistoryPage() {
     if (isBest) baseRadius += 2
     return isHovered ? baseRadius * 1.5 : baseRadius
   }
-
-  if (loading) return <div className="container mx-auto p-4">Loading...</div>
-
-  if (error) return <div className="container mx-auto p-4 text-red-500">Error loading data: {error}</div>
 
   // Chart dimensions and padding
   const plotWidth = chartWidth - padding.left - padding.right
