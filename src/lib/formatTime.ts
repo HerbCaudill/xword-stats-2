@@ -1,5 +1,3 @@
-'use client'
-
 // Format time in minutes and seconds
 export const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60)

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { LocalDate } from '@js-joda/core'
 import { hydrate } from './hydrate'
-import type { PuzzleStat } from '../types'
+import type { PuzzleStat } from '@/types'
 
 const beginningOfTime = LocalDate.parse('2017-07-01')
 

@@ -5,7 +5,7 @@ import { LocalDate } from '@js-joda/core'
 import { useRef, useState } from 'react'
 import colors from 'tailwindcss/colors'
 import cx from 'classnames'
-import { removeOutliers } from '../lib/removeOutliers'
+import { removeOutliers } from '@/lib/removeOutliers'
 import { formatTime } from '@/lib/formatTime'
 
 const color = {
