@@ -6,6 +6,7 @@ import { useRef, useState } from 'react'
 import colors from 'tailwindcss/colors'
 import cx from 'classnames'
 import { removeOutliers } from '../lib/removeOutliers'
+import { formatTime } from '@/lib/formatTime'
 
 const color = {
   axis: colors.gray[300],
@@ -54,12 +55,13 @@ export default function HistoryPage() {
     if (selectedDay === null || selectedDay === dayOfWeek) {
       return getColor(dayOfWeek)
     }
-    return colors.gray[500]
+    return colors.gray[200]
   }
 
-  const getPointRadius = (dayOfWeek: number, isHovered: boolean = false) => {
-    const baseRadius = selectedDay !== null && selectedDay === dayOfWeek ? 3 : 2
-    return isHovered ? baseRadius * 2 : baseRadius
+  const getPointRadius = (dayOfWeek: number, isHovered: boolean = false, isBest: boolean = false) => {
+    let baseRadius = selectedDay !== null && selectedDay === dayOfWeek ? 3 : 2
+    if (isBest) baseRadius += 2
+    return isHovered ? baseRadius * 1.5 : baseRadius
   }
 
   if (loading) return <div className="container mx-auto p-4">Loading...</div>
@@ -96,6 +98,26 @@ export default function HistoryPage() {
   // Filter stats based on selected day
   const dayFilteredStats =
     selectedDay === null ? filteredStats : filteredStats.filter(stat => stat.date.dayOfWeek().value() === selectedDay)
+
+  // Find best time for each day of the week
+  const bestTimesByDay = filteredStats.reduce((acc, stat) => {
+    const dayOfWeek = stat.date.dayOfWeek().value()
+    if (!acc[dayOfWeek] || stat.time < acc[dayOfWeek].time) {
+      acc[dayOfWeek] = stat
+    }
+    return acc
+  }, {} as Record<number, (typeof filteredStats)[0]>)
+
+  const isBestTimeForDay = (stat: (typeof filteredStats)[0]) => {
+    // Only highlight best times when a specific day is selected
+    if (selectedDay === null) return false
+
+    const dayOfWeek = stat.date.dayOfWeek().value()
+    if (dayOfWeek !== selectedDay) return false
+
+    const bestForDay = bestTimesByDay[dayOfWeek]
+    return bestForDay && stat.date.equals(bestForDay.date) && stat.time === bestForDay.time
+  }
 
   const yTickPositions = years.map(year => {
     const yearStart = LocalDate.of(year, 1, 1)
@@ -197,34 +219,50 @@ export default function HistoryPage() {
               })
               .map((stat, i) => {
                 const isHovered = Boolean(tooltip && tooltip.date.equals(stat.date) && tooltip.time === stat.time)
+                const isBest = isBestTimeForDay(stat)
+                const dayOfWeek = stat.date.dayOfWeek().value()
+
                 return (
-                  <circle
-                    key={i}
-                    cx={padding.left + scaleX(stat.time)}
-                    cy={padding.top + scaleY(stat.date)}
-                    r={getPointRadius(stat.date.dayOfWeek().value(), isHovered)}
-                    fill={getPointColor(stat.date.dayOfWeek().value())}
-                    stroke="transparent"
-                    strokeWidth={3}
-                    style={{
-                      cursor: 'pointer',
-                      pointerEvents: 'all',
-                      zIndex: isHovered ? 1000 : 'auto',
-                    }}
-                    onPointerEnter={e => {
-                      if (selectedDay === null || selectedDay === stat.date.dayOfWeek().value()) {
-                        setTooltip({
-                          x: padding.left + scaleX(stat.time),
-                          y: padding.top + scaleY(stat.date),
-                          date: stat.date,
-                          time: stat.time,
-                        })
-                      }
-                    }}
-                    onPointerLeave={() => {
-                      setTooltip(null)
-                    }}
-                  />
+                  <g key={i}>
+                    <circle
+                      cx={padding.left + scaleX(stat.time)}
+                      cy={padding.top + scaleY(stat.date)}
+                      r={getPointRadius(dayOfWeek, isHovered, isBest)}
+                      fill={getPointColor(dayOfWeek)}
+                      stroke={isBest ? '#ffffff' : 'transparent'}
+                      strokeWidth={isBest ? 3 : 3}
+                      style={{
+                        cursor: 'pointer',
+                        pointerEvents: 'all',
+                        zIndex: isHovered ? 1000 : isBest ? 100 : 'auto',
+                      }}
+                      onPointerEnter={e => {
+                        if (selectedDay === null || selectedDay === stat.date.dayOfWeek().value()) {
+                          setTooltip({
+                            x: padding.left + scaleX(stat.time),
+                            y: padding.top + scaleY(stat.date),
+                            date: stat.date,
+                            time: stat.time,
+                          })
+                        }
+                      }}
+                      onPointerLeave={() => {
+                        setTooltip(null)
+                      }}
+                    />
+                    {isBest && (
+                      <circle
+                        cx={padding.left + scaleX(stat.time)}
+                        cy={padding.top + scaleY(stat.date)}
+                        r={getPointRadius(dayOfWeek, isHovered, isBest) + 3}
+                        fill="none"
+                        stroke={getPointColor(dayOfWeek)}
+                        strokeWidth={2}
+                        opacity={0.6}
+                        style={{ pointerEvents: 'none' }}
+                      />
+                    )}
+                  </g>
                 )
               })}
           </g>
@@ -332,7 +370,7 @@ export default function HistoryPage() {
         {/* Tooltip */}
         {tooltip && (
           <div
-            className="absolute bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none z-10"
+            className="absolute bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none z-10 flex flex-col gap-1"
             style={{
               left: `${(tooltip.x / chartWidth) * 100}%`,
               top: `${((tooltip.y - 10) / chartHeight) * 100}%`,
@@ -341,7 +379,10 @@ export default function HistoryPage() {
           >
             <div>{tooltip.date.toString()}</div>
             <div>
-              {Math.floor(tooltip.time / 60)}:{(tooltip.time % 60).toString().padStart(2, '0')}
+              {isBestTimeForDay(filteredStats.find(s => s.date.equals(tooltip.date) && s.time === tooltip.time)!) && (
+                <span>🏆</span>
+              )}
+              {formatTime(tooltip.time)}{' '}
             </div>
           </div>
         )}
