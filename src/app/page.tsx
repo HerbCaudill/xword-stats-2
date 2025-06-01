@@ -40,7 +40,7 @@ const dayNames = {
 
 const chartHeight = 750
 const chartWidth = 500
-const padding = { top: 20, right: 10, bottom: 50, left: 45 }
+const padding = { top: 20, right: 10, bottom: 10, left: 45 }
 const minTimeForScale = 180
 
 export default function HistoryPage() {

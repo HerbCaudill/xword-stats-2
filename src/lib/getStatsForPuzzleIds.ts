@@ -16,5 +16,5 @@ export async function getStatsForPuzzleIds(puzzleIds: number[]) {
 
   return puzzles
     .filter(({ solved, time_elapsed }: Puzzle) => solved === true && time_elapsed > 0)
-    .map(({ print_date, time_elapsed }: Puzzle) => ({ date: print_date, time: time_elapsed }))
+    .map(({ last_modified, time_elapsed }: Puzzle) => ({ date: last_modified.split(' ')[0], time: time_elapsed }))
 }

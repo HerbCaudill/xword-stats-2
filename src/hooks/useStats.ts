@@ -6,7 +6,7 @@ import { LocalDate } from '@js-joda/core'
 import { useEffect, useState } from 'react'
 const persistedStats = hydrate(_persistedStats)
 
-const beginningOfTime = LocalDate.parse('2017-07-01')
+const beginningOfTime = LocalDate.parse('2015-01-01')
 
 export const usePuzzleStats = () => {
   const [stats, setStats] = useState<PuzzleStat[]>(persistedStats)
