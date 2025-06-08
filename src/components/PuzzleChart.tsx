@@ -65,7 +65,7 @@ export function PuzzleChart({ stats, selectedDay }: PuzzleChartProps) {
     return stat === byDayOfWeek[selectedDay]?.best
   }
 
-  const yTickPositions = years.map(year => {
+  const yTicks = years.map(year => {
     const yearStart = LocalDate.of(year, 1, 1)
     const yearStats = dayFilteredStats.filter(stat => stat.dateSolved.year() === year)
     const yearCount = yearStats.length
@@ -90,9 +90,9 @@ export function PuzzleChart({ stats, selectedDay }: PuzzleChartProps) {
     }
   }
 
-  const xTickPositions = logTickValues.map(time => ({
+  const xTicks = logTickValues.map(time => ({
     x: ((Math.log(time) - logMin) / (logMax - logMin)) * plotWidth,
-    time: time,
+    time,
   }))
 
   return (
@@ -101,7 +101,7 @@ export function PuzzleChart({ stats, selectedDay }: PuzzleChartProps) {
         {/* Grid lines */}
         <g>
           {/* Horizontal grid lines (for years) */}
-          {yTickPositions.map((tick, i) => (
+          {yTicks.map((tick, i) => (
             <line
               key={`y-grid-${i}`}
               x1={padding.left}
@@ -114,7 +114,7 @@ export function PuzzleChart({ stats, selectedDay }: PuzzleChartProps) {
           ))}
 
           {/* Vertical grid lines (for times) */}
-          {xTickPositions.map((tick, i) => (
+          {xTicks.map((tick, i) => (
             <line
               key={`x-grid-${i}`}
               x1={padding.left + tick.x}
@@ -186,10 +186,10 @@ export function PuzzleChart({ stats, selectedDay }: PuzzleChartProps) {
 
         {/* Average time lines for each year */}
         <g>
-          {yTickPositions.map((tick, i) => {
+          {yTicks.map((tick, i) => {
             if (tick.count === 0) return null
 
-            const nextTick = yTickPositions[i + 1]
+            const nextTick = yTicks[i + 1]
             const lineStartY = tick.y
             const lineEndY = nextTick ? nextTick.y : plotHeight
             const lineX = scaleX(tick.avgTime)
@@ -244,10 +244,10 @@ export function PuzzleChart({ stats, selectedDay }: PuzzleChartProps) {
 
         {/* X-axis labels (time labels at bottom) */}
         <g>
-          {xTickPositions.map((tick, i) => (
+          {xTicks.map((tick, i) => (
             <g key={`x-label-${i}`}>
               <text x={padding.left + tick.x} y={10} textAnchor="middle" className="text-2xs" fill={color.text}>
-                {tick.time > 0 ? `${tick.time / 60} ${i === xTickPositions.length - 1 ? 'min' : ''}` : null}
+                {tick.time > 0 ? `${tick.time / 60} ${i === xTicks.length - 1 ? 'min' : ''}` : null}
               </text>
             </g>
           ))}
@@ -255,7 +255,7 @@ export function PuzzleChart({ stats, selectedDay }: PuzzleChartProps) {
 
         {/* Y-axis labels (year labels on left) */}
         <g>
-          {yTickPositions.map((tick, i) => (
+          {yTicks.map((tick, i) => (
             <foreignObject
               key={`y-label-${i}-${selectedDay || 'all'}`}
               x={padding.left - 55}
