@@ -79,8 +79,7 @@ export function PuzzleChart({ stats, selectedDay }: PuzzleChartProps) {
     }
   })
 
-  // X-axis: Logarithmic scale with nice round numbers
-  // Generate logarithmic tick marks (1, 2, 5, 10, 20, 50 minutes, etc.)
+  // X-axis: Logarithmic scale with nice round numbers (1, 2, 5, 10, 20, 50 minutes, etc.)
   const logTickValues = []
   for (let power = 0; power <= 4; power++) {
     for (const base of [1, 2, 5]) {
