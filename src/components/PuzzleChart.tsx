@@ -22,7 +22,7 @@ const minTimeForScale = 180 // start x axis at 3 minutes
 export function PuzzleChart({ stats, selectedDay }: Props) {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
 
-  const { minDate, maxDate, years, maxTime, byDayOfWeek } = analyzeStats(stats)
+  const { minDate, maxDate, years, maxTime, byDayOfWeek, trailingAverages, trailingAveragesByDay } = analyzeStats(stats)
 
   const getPointColor = (dayOfWeek: number) => {
     if (selectedDay === null || selectedDay === dayOfWeek) return getColor(dayOfWeek)
@@ -80,6 +80,21 @@ export function PuzzleChart({ stats, selectedDay }: Props) {
 
   const best = selectedDay !== null ? byDayOfWeek[selectedDay]?.best : undefined
   const mostRecent = selectedDay !== null ? byDayOfWeek[selectedDay]?.mostRecent : undefined
+
+  // Create path for trailing average line - use day-specific averages when a day is selected
+  const currentTrailingAverages = selectedDay !== null ? trailingAveragesByDay[selectedDay] : trailingAverages
+
+  // Filter to only show trailing averages up to current date
+  const today = LocalDate.now()
+  const filteredTrailingAverages = currentTrailingAverages.filter(point => !point.date.isAfter(today))
+
+  const trailingAveragePath = filteredTrailingAverages
+    .map((point, index) => {
+      const x = scaleX(point.average)
+      const y = scaleY(point.date)
+      return `${index === 0 ? 'M' : 'L'} ${x} ${y}`
+    })
+    .join(' ')
 
   const showTooltip = (stat: PuzzleStat) => {
     if (selectedDay === null || selectedDay === stat.date.dayOfWeek().value()) {
@@ -159,7 +174,7 @@ export function PuzzleChart({ stats, selectedDay }: Props) {
                       cy={pad.top + scaleY(stat.dateSolved)}
                       r={getPointRadius(dayOfWeek, isHovered, isBest)}
                       fill={isMostRecent ? '#ffffff' : getPointColor(dayOfWeek)}
-                      stroke={isBest ? '#ffffff' : isMostRecent ? getPointColor(dayOfWeek) : 'transparent'}
+                      stroke={isBest ? '#ffffff' : isMostRecent ? getColor(dayOfWeek) : 'transparent'}
                       strokeWidth={isBest ? 3 : 3}
                       style={{
                         cursor: 'pointer',
@@ -185,7 +200,7 @@ export function PuzzleChart({ stats, selectedDay }: Props) {
                         cy={pad.top + scaleY(stat.dateSolved)}
                         r={getPointRadius(dayOfWeek, isHovered, isBest) + 2}
                         fill="none"
-                        stroke={getPointColor(dayOfWeek)}
+                        stroke={getColor(dayOfWeek)}
                         strokeWidth={2}
                         style={{ pointerEvents: 'none' }}
                       />
@@ -193,44 +208,6 @@ export function PuzzleChart({ stats, selectedDay }: Props) {
                   </g>
                 )
               })}
-          </g>
-
-          {/* Average time lines for each year */}
-          <g>
-            {yTicks.map((tick, i) => {
-              if (tick.count === 0) return null
-
-              const nextTick = yTicks[i + 1]
-              const lineStartY = tick.y
-              const lineEndY = nextTick ? nextTick.y : plotHeight
-              const lineX = scaleX(tick.avgTime)
-              const lineColor = selectedDay === null ? colors.gray['800'] : getColor(selectedDay)
-
-              return (
-                <g key={`avg-group-${i}-${selectedDay || 'all'}`}>
-                  {/* Translucent box from average line to y-axis */}
-                  <rect
-                    x={pad.left}
-                    y={pad.top + lineStartY}
-                    width={lineX}
-                    height={lineEndY - lineStartY}
-                    fill={lineColor}
-                    opacity={0.1}
-                    style={{ pointerEvents: 'none' }}
-                  />
-                  {/* Average line */}
-                  <line
-                    x1={pad.left + lineX}
-                    y1={pad.top + lineStartY}
-                    x2={pad.left + lineX}
-                    y2={pad.top + lineEndY}
-                    stroke={lineColor}
-                    strokeWidth={1}
-                    style={{ pointerEvents: 'none' }}
-                  />
-                </g>
-              )
-            })}
           </g>
 
           {/* X-axis (bottom) */}
@@ -285,6 +262,22 @@ export function PuzzleChart({ stats, selectedDay }: Props) {
               </foreignObject>
             ))}
           </g>
+
+          {/* Trailing average line */}
+          {filteredTrailingAverages.length > 0 && (
+            <g transform={`translate(${pad.left}, ${pad.top})`}>
+              <path
+                d={trailingAveragePath}
+                stroke={selectedDay === null ? colors.blue[500] : getColor(selectedDay)}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={20}
+                fill="none"
+                opacity={0.3}
+                style={{ pointerEvents: 'none' }}
+              />
+            </g>
+          )}
         </svg>
 
         {/* Tooltip */}
