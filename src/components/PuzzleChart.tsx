@@ -4,7 +4,7 @@ import { analyzeStats } from '@/lib/analyzeStats'
 import { formatTime } from '@/lib/formatTime'
 import type { PuzzleStat } from '@/types'
 import { DayOfWeek, LocalDate, TemporalAdjusters } from '@js-joda/core'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import colors from 'tailwindcss/colors'
 import { getColor } from './getColor'
 
@@ -16,16 +16,11 @@ const color = {
 
 const chartHeight = 750
 const chartWidth = 500
-const padding = { top: 20, right: 10, bottom: 10, left: 45 }
+const pad = { top: 20, right: 10, bottom: 10, left: 45 }
 const minTimeForScale = 180 // start x axis at 3 minutes
 
-interface PuzzleChartProps {
-  stats: PuzzleStat[]
-  selectedDay: number | null
-}
-
-export function PuzzleChart({ stats, selectedDay }: PuzzleChartProps) {
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; stat: PuzzleStat } | null>(null)
+export function PuzzleChart({ stats, selectedDay }: Props) {
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null)
 
   const { minDate, maxDate, years, maxTime, byDayOfWeek } = analyzeStats(stats)
 
@@ -36,13 +31,13 @@ export function PuzzleChart({ stats, selectedDay }: PuzzleChartProps) {
 
   const getPointRadius = (dayOfWeek: number, isHovered: boolean = false, isBest: boolean = false) => {
     let baseRadius = selectedDay !== null && selectedDay === dayOfWeek ? 3 : 2
-    if (isBest) baseRadius += 2
-    return isHovered ? baseRadius * 1.5 : baseRadius
+    if (isBest) baseRadius += 1
+    return isHovered ? baseRadius * 1.2 : baseRadius
   }
 
   // Chart dimensions and padding
-  const plotWidth = chartWidth - padding.left - padding.right
-  const plotHeight = chartHeight - padding.top - padding.bottom
+  const plotWidth = chartWidth - pad.left - pad.right
+  const plotHeight = chartHeight - pad.top - pad.bottom
 
   // Get data ranges
   const logMin = Math.log(minTimeForScale)
@@ -51,23 +46,14 @@ export function PuzzleChart({ stats, selectedDay }: PuzzleChartProps) {
   const scaleX = (time: number) => ((Math.log(time) - logMin) / (logMax - logMin)) * plotWidth
 
   const scaleY = (date: LocalDate) => {
-    const monday = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).toEpochDay()
     const min = minDate.toEpochDay()
     const max = maxDate.toEpochDay()
-    return ((monday - min) / (max - min)) * plotHeight
-  }
-
-  // Filter stats based on selected day
-  const dayFilteredStats = selectedDay === null ? stats : byDayOfWeek[selectedDay]?.stats || []
-
-  const isBestTimeForDay = (stat: PuzzleStat) => {
-    if (selectedDay === null) return false
-    return stat === byDayOfWeek[selectedDay]?.best
+    return ((date.toEpochDay() - min) / (max - min)) * plotHeight
   }
 
   const yTicks = years.map(year => {
     const yearStart = LocalDate.of(year, 1, 1)
-    const yearStats = dayFilteredStats.filter(stat => stat.dateSolved.year() === year)
+    const yearStats = stats.filter(stat => stat.dateSolved.year() === year)
     const yearCount = yearStats.length
     const yearAvgTime = yearCount > 0 ? Math.round(yearStats.reduce((sum, stat) => sum + stat.time, 0) / yearCount) : 0
 
@@ -90,209 +76,260 @@ export function PuzzleChart({ stats, selectedDay }: PuzzleChartProps) {
     }
   }
 
-  const xTicks = logTickValues.map(time => ({
-    x: ((Math.log(time) - logMin) / (logMax - logMin)) * plotWidth,
-    time,
-  }))
+  const xTicks = logTickValues.map(time => ({ x: scaleX(time), time }))
+
+  const best = selectedDay !== null ? byDayOfWeek[selectedDay]?.best : undefined
+  const mostRecent = selectedDay !== null ? byDayOfWeek[selectedDay]?.mostRecent : undefined
+
+  const showTooltip = (stat: PuzzleStat) => {
+    if (selectedDay === null || selectedDay === stat.date.dayOfWeek().value()) {
+      // Clear existing timeout if any
+      if (tooltip?.timeoutId) clearTimeout(tooltip.timeoutId)
+
+      const timeoutId = setTimeout(() => setTooltip(null), 5000)
+
+      setTooltip({
+        x: pad.left + scaleX(stat.time),
+        y: pad.top + scaleY(stat.dateSolved),
+        stat: stat,
+        timeoutId,
+      })
+    }
+  }
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (tooltip?.timeoutId) clearTimeout(tooltip.timeoutId)
+    }
+  }, [tooltip?.timeoutId])
 
   return (
-    <div className="relative">
-      <svg width="100%" height="100%" viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-full">
-        {/* Grid lines */}
-        <g>
-          {/* Horizontal grid lines (for years) */}
-          {yTicks.map((tick, i) => (
-            <line
-              key={`y-grid-${i}`}
-              x1={padding.left}
-              y1={padding.top + tick.y}
-              x2={padding.left + plotWidth}
-              y2={padding.top + tick.y}
-              stroke={color.axis}
-              strokeWidth={1}
-            />
-          ))}
+    <div className="flex flex-col">
+      <div className="relative">
+        <svg width="100%" height="100%" viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-full">
+          {/* Grid lines */}
+          <g>
+            {/* Horizontal grid lines (for years) */}
+            {yTicks.map((tick, i) => (
+              <line
+                key={`y-grid-${i}`}
+                x1={pad.left}
+                y1={pad.top + tick.y}
+                x2={pad.left + plotWidth}
+                y2={pad.top + tick.y}
+                stroke={color.axis}
+                strokeWidth={1}
+              />
+            ))}
 
-          {/* Vertical grid lines (for times) */}
-          {xTicks.map((tick, i) => (
-            <line
-              key={`x-grid-${i}`}
-              x1={padding.left + tick.x}
-              y1={padding.top}
-              x2={padding.left + tick.x}
-              y2={padding.top + plotHeight}
-              stroke={color.gridLines}
-              strokeWidth={1}
-            />
-          ))}
-        </g>
+            {/* Vertical grid lines (for times) */}
+            {xTicks.map((tick, i) => (
+              <line
+                key={`x-grid-${i}`}
+                x1={pad.left + tick.x}
+                y1={pad.top}
+                x2={pad.left + tick.x}
+                y2={pad.top + plotHeight}
+                stroke={color.gridLines}
+                strokeWidth={1}
+              />
+            ))}
+          </g>
 
-        {/* Data points */}
-        <g>
-          {stats
-            .sort((a, b) => {
-              const aIsSelected = selectedDay === null || selectedDay === a.date.dayOfWeek().value()
-              const bIsSelected = selectedDay === null || selectedDay === b.date.dayOfWeek().value()
-              // Sort unselected items first (false < true), selected items last
-              return Number(aIsSelected) - Number(bIsSelected)
-            })
-            .map((stat, i) => {
-              const isHovered = tooltip?.stat === stat
-              const isBest = isBestTimeForDay(stat)
-              const dayOfWeek = stat.date.dayOfWeek().value()
+          {/* Data points */}
+          <g>
+            {stats
+              .sort((a, b) => {
+                const aIsSelected = selectedDay === null || selectedDay === a.date.dayOfWeek().value()
+                const bIsSelected = selectedDay === null || selectedDay === b.date.dayOfWeek().value()
+                // Sort unselected items first (false < true), selected items last
+                return Number(aIsSelected) - Number(bIsSelected)
+              })
+              .map((stat, i) => {
+                const isHovered = tooltip?.stat === stat
+                const isBest = stat === best
+                const isMostRecent = stat === mostRecent
+                const dayOfWeek = stat.date.dayOfWeek().value()
+
+                return (
+                  <g key={i}>
+                    <circle
+                      cx={pad.left + scaleX(stat.time)}
+                      cy={pad.top + scaleY(stat.dateSolved)}
+                      r={getPointRadius(dayOfWeek, isHovered, isBest)}
+                      fill={isMostRecent ? '#ffffff' : getPointColor(dayOfWeek)}
+                      stroke={isBest ? '#ffffff' : isMostRecent ? getPointColor(dayOfWeek) : 'transparent'}
+                      strokeWidth={isBest ? 3 : 3}
+                      style={{
+                        cursor: 'pointer',
+                        pointerEvents: 'all',
+                        zIndex: isHovered ? 1000 : isBest ? 100 : 'auto',
+                      }}
+                      onClick={() => showTooltip(stat)}
+                    />
+                    {isHovered && (
+                      <circle
+                        cx={pad.left + scaleX(stat.time)}
+                        cy={pad.top + scaleY(stat.dateSolved)}
+                        r={getPointRadius(dayOfWeek, isHovered, isBest) + 2}
+                        fill="none"
+                        stroke={'#000000'}
+                        strokeWidth={4}
+                        style={{ pointerEvents: 'none' }}
+                      />
+                    )}
+                    {isBest && (
+                      <circle
+                        cx={pad.left + scaleX(stat.time)}
+                        cy={pad.top + scaleY(stat.dateSolved)}
+                        r={getPointRadius(dayOfWeek, isHovered, isBest) + 2}
+                        fill="none"
+                        stroke={getPointColor(dayOfWeek)}
+                        strokeWidth={2}
+                        style={{ pointerEvents: 'none' }}
+                      />
+                    )}
+                  </g>
+                )
+              })}
+          </g>
+
+          {/* Average time lines for each year */}
+          <g>
+            {yTicks.map((tick, i) => {
+              if (tick.count === 0) return null
+
+              const nextTick = yTicks[i + 1]
+              const lineStartY = tick.y
+              const lineEndY = nextTick ? nextTick.y : plotHeight
+              const lineX = scaleX(tick.avgTime)
+              const lineColor = selectedDay === null ? colors.gray['800'] : getColor(selectedDay)
 
               return (
-                <g key={i}>
-                  <circle
-                    cx={padding.left + scaleX(stat.time)}
-                    cy={padding.top + scaleY(stat.dateSolved)}
-                    r={getPointRadius(dayOfWeek, isHovered, isBest)}
-                    fill={getPointColor(dayOfWeek)}
-                    stroke={isBest ? '#ffffff' : 'transparent'}
-                    strokeWidth={isBest ? 3 : 3}
-                    style={{
-                      cursor: 'pointer',
-                      pointerEvents: 'all',
-                      zIndex: isHovered ? 1000 : isBest ? 100 : 'auto',
-                    }}
-                    onPointerEnter={e => {
-                      if (selectedDay === null || selectedDay === stat.date.dayOfWeek().value()) {
-                        setTooltip({
-                          x: padding.left + scaleX(stat.time),
-                          y: padding.top + scaleY(stat.dateSolved),
-                          stat: stat,
-                        })
-                      }
-                    }}
-                    onPointerLeave={() => {
-                      setTooltip(null)
-                    }}
+                <g key={`avg-group-${i}-${selectedDay || 'all'}`}>
+                  {/* Translucent box from average line to y-axis */}
+                  <rect
+                    x={pad.left}
+                    y={pad.top + lineStartY}
+                    width={lineX}
+                    height={lineEndY - lineStartY}
+                    fill={lineColor}
+                    opacity={0.1}
+                    style={{ pointerEvents: 'none' }}
                   />
-                  {isBest && (
-                    <circle
-                      cx={padding.left + scaleX(stat.time)}
-                      cy={padding.top + scaleY(stat.dateSolved)}
-                      r={getPointRadius(dayOfWeek, isHovered, isBest) + 3}
-                      fill="none"
-                      stroke={getPointColor(dayOfWeek)}
-                      strokeWidth={2}
-                      style={{ pointerEvents: 'none' }}
-                    />
-                  )}
+                  {/* Average line */}
+                  <line
+                    x1={pad.left + lineX}
+                    y1={pad.top + lineStartY}
+                    x2={pad.left + lineX}
+                    y2={pad.top + lineEndY}
+                    stroke={lineColor}
+                    strokeWidth={1}
+                    style={{ pointerEvents: 'none' }}
+                  />
                 </g>
               )
             })}
-        </g>
+          </g>
 
-        {/* Average time lines for each year */}
-        <g>
-          {yTicks.map((tick, i) => {
-            if (tick.count === 0) return null
+          {/* X-axis (bottom) */}
+          <line
+            x1={pad.left}
+            y1={pad.top + plotHeight}
+            x2={pad.left + plotWidth}
+            y2={pad.top + plotHeight}
+            stroke={color.axis}
+            strokeWidth={1}
+          />
 
-            const nextTick = yTicks[i + 1]
-            const lineStartY = tick.y
-            const lineEndY = nextTick ? nextTick.y : plotHeight
-            const lineX = scaleX(tick.avgTime)
-            const lineColor = selectedDay === null ? colors.gray['800'] : getColor(selectedDay)
+          {/* Y-axis (left) */}
+          <line
+            x1={pad.left}
+            y1={pad.top}
+            x2={pad.left}
+            y2={pad.top + plotHeight}
+            stroke={color.axis}
+            strokeWidth={1}
+          />
 
-            return (
-              <g key={`avg-group-${i}-${selectedDay || 'all'}`}>
-                {/* Translucent box from average line to y-axis */}
-                <rect
-                  x={padding.left}
-                  y={padding.top + lineStartY}
-                  width={lineX}
-                  height={lineEndY - lineStartY}
-                  fill={lineColor}
-                  opacity={0.1}
-                  style={{ pointerEvents: 'none' }}
-                />
-                {/* Average line */}
-                <line
-                  x1={padding.left + lineX}
-                  y1={padding.top + lineStartY}
-                  x2={padding.left + lineX}
-                  y2={padding.top + lineEndY}
-                  stroke={lineColor}
-                  strokeWidth={1}
-                  style={{ pointerEvents: 'none' }}
-                />
+          {/* X-axis labels (time labels at bottom) */}
+          <g>
+            {xTicks.map((tick, i) => (
+              <g key={`x-label-${i}`}>
+                <text x={pad.left + tick.x} y={10} textAnchor="middle" className="text-2xs" fill={color.text}>
+                  {tick.time > 0 ? `${tick.time / 60} ${i === xTicks.length - 1 ? 'min' : ''}` : null}
+                </text>
               </g>
-            )
-          })}
-        </g>
+            ))}
+          </g>
 
-        {/* X-axis (bottom) */}
-        <line
-          x1={padding.left}
-          y1={padding.top + plotHeight}
-          x2={padding.left + plotWidth}
-          y2={padding.top + plotHeight}
-          stroke={color.axis}
-          strokeWidth={1}
-        />
+          {/* Y-axis labels (year labels on left) */}
+          <g>
+            {yTicks.map((tick, i) => (
+              <foreignObject
+                key={`y-label-${i}-${selectedDay || 'all'}`}
+                x={pad.left - 55}
+                y={pad.top + tick.y}
+                width="50"
+                height="35"
+              >
+                <div className="flex flex-col items-end">
+                  <div className="font-bold text-xs text-gray-800">{tick.year}</div>
+                  {tick.count > 0 ? (
+                    <div className="text-gray-500 text-2xs">
+                      {Math.floor(tick.avgTime / 60)}:{(tick.avgTime % 60).toString().padStart(2, '0')}
+                    </div>
+                  ) : null}
+                </div>
+              </foreignObject>
+            ))}
+          </g>
+        </svg>
 
-        {/* Y-axis (left) */}
-        <line
-          x1={padding.left}
-          y1={padding.top}
-          x2={padding.left}
-          y2={padding.top + plotHeight}
-          stroke={color.axis}
-          strokeWidth={1}
-        />
-
-        {/* X-axis labels (time labels at bottom) */}
-        <g>
-          {xTicks.map((tick, i) => (
-            <g key={`x-label-${i}`}>
-              <text x={padding.left + tick.x} y={10} textAnchor="middle" className="text-2xs" fill={color.text}>
-                {tick.time > 0 ? `${tick.time / 60} ${i === xTicks.length - 1 ? 'min' : ''}` : null}
-              </text>
-            </g>
-          ))}
-        </g>
-
-        {/* Y-axis labels (year labels on left) */}
-        <g>
-          {yTicks.map((tick, i) => (
-            <foreignObject
-              key={`y-label-${i}-${selectedDay || 'all'}`}
-              x={padding.left - 55}
-              y={padding.top + tick.y}
-              width="50"
-              height="35"
-            >
-              <div className="flex flex-col items-end">
-                <div className="font-bold text-xs text-gray-800">{tick.year}</div>
-                {tick.count > 0 ? (
-                  <div className="text-gray-500 text-2xs">
-                    {Math.floor(tick.avgTime / 60)}:{(tick.avgTime % 60).toString().padStart(2, '0')}
-                  </div>
-                ) : null}
-              </div>
-            </foreignObject>
-          ))}
-        </g>
-      </svg>
-
-      {/* Tooltip */}
-      {tooltip && (
-        <div
-          className="absolute bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none z-10 flex flex-col gap-1"
-          style={{
-            left: `${(tooltip.x / chartWidth) * 100}%`,
-            top: `${((tooltip.y - 10) / chartHeight) * 100}%`,
-            transform: 'translate(-50%, -100%)',
-          }}
-        >
-          <div>{tooltip.stat.dateSolved.toString()}</div>
-          <div>
-            {isBestTimeForDay(tooltip.stat) && <span>🏆</span>}
-            {formatTime(tooltip.stat.time)}
+        {/* Tooltip */}
+        {tooltip && (
+          <div
+            className="absolute bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none z-10 flex flex-col gap-1"
+            style={{
+              left: `${(tooltip.x / chartWidth) * 100}%`,
+              top: `${((tooltip.y - 10) / chartHeight) * 100}%`,
+              transform: 'translate(-50%, -100%)',
+            }}
+          >
+            <div>{tooltip.stat.dateSolved.toString()}</div>
+            <div>
+              {tooltip.stat === best ? <span>🏆</span> : null}
+              {formatTime(tooltip.stat.time)}
+            </div>
           </div>
+        )}
+      </div>
+      {mostRecent && best ? (
+        <div className="text-sm text-gray-800 px-3 flex gap-2">
+          {/* most recent */}
+          <span>
+            Most recent: <strong>{formatTime(mostRecent.time)}</strong>
+          </span>
+
+          {/* best */}
+          <span>
+            Best: <strong>{formatTime(best.time)}</strong>
+          </span>
         </div>
-      )}
+      ) : null}
     </div>
   )
+}
+
+type Props = {
+  stats: PuzzleStat[]
+  selectedDay: number | null
+}
+
+type TooltipState = {
+  x: number
+  y: number
+  stat: PuzzleStat
+  timeoutId: NodeJS.Timeout
 }
