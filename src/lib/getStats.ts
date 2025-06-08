@@ -23,6 +23,7 @@ export async function getStats({
   let currentStart = startDate
 
   // Phase 1: Collect all puzzle IDs for solved puzzles in the date range
+  console.log('')
   console.log('Phase 1: Collecting puzzle IDs for solved puzzles...')
   while (!currentStart.isAfter(endDate)) {
     // Calculate end of current date chunk
@@ -37,6 +38,8 @@ export async function getStats({
   console.log(`Phase 1 complete: Found ${allPuzzleIds.length} total solved puzzles`)
 
   // Phase 2: Get stats for puzzle IDs in chunks
+
+  console.log('')
   console.log('Phase 2: Fetching stats for puzzle IDs...')
   const results: { date: string; time: number }[] = []
 
@@ -50,14 +53,4 @@ export async function getStats({
 
   console.log(`Phase 2 complete: Retrieved stats for ${results.length} puzzles`)
   return results
-}
-
-export type Puzzle = {
-  puzzle_id: number
-  print_date: string
-  publish_type: string
-  last_modified: string
-  solved: boolean
-  percent_filled: number
-  time_elapsed: number
 }

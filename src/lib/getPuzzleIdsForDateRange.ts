@@ -1,5 +1,5 @@
 import type { LocalDate } from '@js-joda/core'
-import type { Puzzle } from './getStats'
+import type { NytPuzzle } from '@/types.ts'
 import { headers } from './headers.ts'
 
 import dotenv from 'dotenv'
@@ -15,10 +15,10 @@ export async function getPuzzleIdsForDateRange(startDate: LocalDate, endDate: Lo
 
   const response = await fetch(url, { headers })
 
-  const { results }: { results: Puzzle[] } = await response.json()
+  const { results }: { results: NytPuzzle[] } = await response.json()
   const ids = (results || []) //
-    .filter(({ solved }: Puzzle) => solved === true)
-    .map(({ puzzle_id }: Puzzle) => puzzle_id)
+    .filter(({ solved }: NytPuzzle) => solved === true)
+    .map(({ puzzle_id }: NytPuzzle) => puzzle_id)
 
   console.log(`${startDate.toString()} to ${endDate.toString()}: ${ids.length} solved puzzles`)
 

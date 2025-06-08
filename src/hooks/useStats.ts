@@ -1,12 +1,14 @@
-import _persistedStats from '@/data/puzzleStats.json'
+import _persistedStats from '@/data/persistedStats.json'
 import { hydrate } from '@/lib/hydrate'
 import { mergeStats } from '@/lib/mergeStats'
 import type { PuzzleStat } from '@/types'
 import { LocalDate } from '@js-joda/core'
 import { useEffect, useState } from 'react'
+import { beginningOfTime } from '@/constants'
+import { removeOutliers } from '@/lib/removeOutliers'
 const persistedStats = hydrate(_persistedStats)
 
-const beginningOfTime = LocalDate.parse('2015-01-01')
+const storageKey = 'puzzleStats.v2'
 
 export const usePuzzleStats = () => {
   const [stats, setStats] = useState<PuzzleStat[]>(persistedStats)
@@ -14,7 +16,7 @@ export const usePuzzleStats = () => {
   useEffect(() => {
     async function fetchData() {
       const getInitialStats = () => {
-        const cachedStatsString = localStorage.getItem('puzzleStats')
+        const cachedStatsString = localStorage.getItem(storageKey)
         if (cachedStatsString) {
           return hydrate(JSON.parse(cachedStatsString))
         }
@@ -47,11 +49,11 @@ export const usePuzzleStats = () => {
 
       // Update state and cache
       setStats(mergedStats)
-      localStorage.setItem('puzzleStats', JSON.stringify(mergedStats))
+      localStorage.setItem(storageKey, JSON.stringify(mergedStats))
     }
 
     fetchData()
   }, [])
 
-  return { stats }
+  return { stats: removeOutliers(stats) }
 }

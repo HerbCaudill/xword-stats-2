@@ -1,12 +1,15 @@
 'use client'
 
+import { dayNames } from '@/constants'
 import { usePuzzleStats } from '@/hooks/useStats'
+import { formatTime } from '@/lib/formatTime'
+import { removeOutliers } from '@/lib/removeOutliers'
+import { analyzeStats } from '@/lib/analyzeStats'
+import type { PuzzleStat } from '@/types'
 import { DayOfWeek, LocalDate, TemporalAdjusters } from '@js-joda/core'
+import cx from 'classnames'
 import { useRef, useState } from 'react'
 import colors from 'tailwindcss/colors'
-import cx from 'classnames'
-import { removeOutliers } from '@/lib/removeOutliers'
-import { formatTime } from '@/lib/formatTime'
 
 const color = {
   axis: colors.gray[300],
@@ -24,24 +27,13 @@ const dayColors = {
   7: colors.pink[600], // Sunday
 }
 
-const getColor = (dayOfWeek: string | number) => {
-  return dayColors[Number(dayOfWeek) as keyof typeof dayColors] || colors.gray[400] // Default color if not found
-}
-
-const dayNames = {
-  1: 'Mon',
-  2: 'Tue',
-  3: 'Wed',
-  4: 'Thu',
-  5: 'Fri',
-  6: 'Sat',
-  7: 'Sun',
-}
+const getColor = (dayOfWeek: string | number) =>
+  dayColors[Number(dayOfWeek) as keyof typeof dayColors] || colors.gray[400]
 
 const chartHeight = 750
 const chartWidth = 500
 const padding = { top: 20, right: 10, bottom: 10, left: 45 }
-const minTimeForScale = 180
+const minTimeForScale = 180 // start x axis at 3 minutes
 
 export default function HistoryPage() {
   const { stats } = usePuzzleStats()
@@ -49,12 +41,10 @@ export default function HistoryPage() {
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
   const [tooltip, setTooltip] = useState<{ x: number; y: number; date: LocalDate; time: number } | null>(null)
 
-  const filteredStats = removeOutliers(stats)
+  const { minDate, maxDate, years, maxTime, byDayOfWeek } = analyzeStats(stats)
 
   const getPointColor = (dayOfWeek: number) => {
-    if (selectedDay === null || selectedDay === dayOfWeek) {
-      return getColor(dayOfWeek)
-    }
+    if (selectedDay === null || selectedDay === dayOfWeek) return getColor(dayOfWeek)
     return colors.gray[200]
   }
 
@@ -69,57 +59,32 @@ export default function HistoryPage() {
   const plotHeight = chartHeight - padding.top - padding.bottom
 
   // Get data ranges
-  const dates = filteredStats.map(stat => stat.date)
-  const times = filteredStats.map(stat => stat.time)
-
-  const minYear = Math.min(2017, ...dates.map(d => d.year()))
-  const maxYear = LocalDate.now().year()
-
-  const minDate = LocalDate.of(minYear, 1, 1).toEpochDay()
-  const maxDate = LocalDate.now().withDayOfYear(365).toEpochDay()
-  const maxTimeForScale = Math.max(...times)
-
   const logMin = Math.log(minTimeForScale)
-  const logMax = Math.log(maxTimeForScale)
+  const logMax = Math.log(maxTime)
 
   const scaleX = (time: number) => ((Math.log(time) - logMin) / (logMax - logMin)) * plotWidth
 
   const scaleY = (date: LocalDate) => {
-    const monday = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    return ((monday.toEpochDay() - minDate) / (maxDate - minDate)) * plotHeight
+    const monday = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).toEpochDay()
+    const min = minDate.toEpochDay()
+    const max = maxDate.toEpochDay()
+    return ((monday - min) / (max - min)) * plotHeight
   }
-
-  // Generate tick marks
-  // Y-axis: Years (now vertical)
-  const years = Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i)
 
   // Filter stats based on selected day
   const dayFilteredStats =
-    selectedDay === null ? filteredStats : filteredStats.filter(stat => stat.date.dayOfWeek().value() === selectedDay)
+    selectedDay === null //
+      ? stats
+      : byDayOfWeek[selectedDay]?.stats || []
 
-  // Find best time for each day of the week
-  const bestTimesByDay = filteredStats.reduce((acc, stat) => {
-    const dayOfWeek = stat.date.dayOfWeek().value()
-    if (!acc[dayOfWeek] || stat.time < acc[dayOfWeek].time) {
-      acc[dayOfWeek] = stat
-    }
-    return acc
-  }, {} as Record<number, (typeof filteredStats)[0]>)
-
-  const isBestTimeForDay = (stat: (typeof filteredStats)[0]) => {
-    // Only highlight best times when a specific day is selected
+  const isBestTimeForDay = (stat: PuzzleStat) => {
     if (selectedDay === null) return false
-
-    const dayOfWeek = stat.date.dayOfWeek().value()
-    if (dayOfWeek !== selectedDay) return false
-
-    const bestForDay = bestTimesByDay[dayOfWeek]
-    return bestForDay && stat.date.equals(bestForDay.date) && stat.time === bestForDay.time
+    return stat === byDayOfWeek[selectedDay]?.best
   }
 
   const yTickPositions = years.map(year => {
     const yearStart = LocalDate.of(year, 1, 1)
-    const yearStats = dayFilteredStats.filter(stat => stat.date.year() === year)
+    const yearStats = dayFilteredStats.filter(stat => stat.dateSolved.year() === year)
     const yearCount = yearStats.length
     const yearAvgTime = yearCount > 0 ? Math.round(yearStats.reduce((sum, stat) => sum + stat.time, 0) / yearCount) : 0
 
@@ -134,11 +99,10 @@ export default function HistoryPage() {
   // X-axis: Logarithmic scale with nice round numbers
   // Generate logarithmic tick marks (1, 2, 5, 10, 20, 50 minutes, etc.)
   const logTickValues = []
-  const baseValues = [1, 2, 5]
   for (let power = 0; power <= 4; power++) {
-    for (const base of baseValues) {
+    for (const base of [1, 2, 5]) {
       const value = base * Math.pow(10, power) * 60 // Convert to seconds
-      if (value >= minTimeForScale && value <= maxTimeForScale) {
+      if (value >= minTimeForScale && value <= maxTime) {
         logTickValues.push(value)
       }
     }
@@ -208,7 +172,7 @@ export default function HistoryPage() {
 
           {/* Data points */}
           <g>
-            {filteredStats
+            {stats
               .sort((a, b) => {
                 const aIsSelected = selectedDay === null || selectedDay === a.date.dayOfWeek().value()
                 const bIsSelected = selectedDay === null || selectedDay === b.date.dayOfWeek().value()
@@ -216,15 +180,15 @@ export default function HistoryPage() {
                 return Number(aIsSelected) - Number(bIsSelected)
               })
               .map((stat, i) => {
-                const isHovered = Boolean(tooltip && tooltip.date.equals(stat.date) && tooltip.time === stat.time)
+                const isHovered = Boolean(tooltip && tooltip.date.equals(stat.dateSolved) && tooltip.time === stat.time)
                 const isBest = isBestTimeForDay(stat)
-                const dayOfWeek = stat.date.dayOfWeek().value()
+                const dayOfWeek = stat.dateSolved.dayOfWeek().value()
 
                 return (
                   <g key={i}>
                     <circle
                       cx={padding.left + scaleX(stat.time)}
-                      cy={padding.top + scaleY(stat.date)}
+                      cy={padding.top + scaleY(stat.dateSolved)}
                       r={getPointRadius(dayOfWeek, isHovered, isBest)}
                       fill={getPointColor(dayOfWeek)}
                       stroke={isBest ? '#ffffff' : 'transparent'}
@@ -238,8 +202,8 @@ export default function HistoryPage() {
                         if (selectedDay === null || selectedDay === stat.date.dayOfWeek().value()) {
                           setTooltip({
                             x: padding.left + scaleX(stat.time),
-                            y: padding.top + scaleY(stat.date),
-                            date: stat.date,
+                            y: padding.top + scaleY(stat.dateSolved),
+                            date: stat.dateSolved,
                             time: stat.time,
                           })
                         }
@@ -251,7 +215,7 @@ export default function HistoryPage() {
                     {isBest && (
                       <circle
                         cx={padding.left + scaleX(stat.time)}
-                        cy={padding.top + scaleY(stat.date)}
+                        cy={padding.top + scaleY(stat.dateSolved)}
                         r={getPointRadius(dayOfWeek, isHovered, isBest) + 3}
                         fill="none"
                         stroke={getPointColor(dayOfWeek)}
@@ -368,7 +332,7 @@ export default function HistoryPage() {
           >
             <div>{tooltip.date.toString()}</div>
             <div>
-              {isBestTimeForDay(filteredStats.find(s => s.date.equals(tooltip.date) && s.time === tooltip.time)!) && (
+              {isBestTimeForDay(stats.find(s => s.dateSolved.equals(tooltip.date) && s.time === tooltip.time)!) && (
                 <span>🏆</span>
               )}
               {formatTime(tooltip.time)}{' '}

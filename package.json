@@ -7,7 +7,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "stats": "NODE_NO_WARNINGS=1 node ./src/scripts/stats.ts"
+    "stats": "NODE_NO_WARNINGS=1 node ./src/scripts/persistStats.ts",
+    "test": "vitest"
   },
   "dependencies": {
     "@js-joda/core": "^5.6.5",
@@ -25,6 +26,7 @@
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.1.4"
   }
 }
