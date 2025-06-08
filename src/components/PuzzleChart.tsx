@@ -290,7 +290,7 @@ export function PuzzleChart({ stats, selectedDay }: PuzzleChartProps) {
           <div>{tooltip.stat.dateSolved.toString()}</div>
           <div>
             {isBestTimeForDay(tooltip.stat) && <span>🏆</span>}
-            {formatTime(tooltip.stat.time)}{' '}
+            {formatTime(tooltip.stat.time)}
           </div>
         </div>
       )}
