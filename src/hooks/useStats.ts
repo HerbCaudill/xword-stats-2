@@ -26,21 +26,21 @@ export const usePuzzleStats = () => {
       const currentStats = getInitialStats()
       setStats(currentStats)
 
-      const mostRecentDate = currentStats.reduce(
+      const latestDate = currentStats.reduce(
         (latest, stat) => (stat.date.isAfter(latest) ? stat.date : latest),
         beginningOfTime
       )
 
       // If we have cached data and the most recent date is today, no need to fetch
       const today = LocalDate.now()
-      if (mostRecentDate && mostRecentDate.isEqual(today)) {
+      if (latestDate && latestDate.isEqual(today)) {
         console.log('Cached stats are up-to-date, no fetch needed.')
         return
       }
 
       // Fetch new data from the API
-      console.log(`Fetching stats for date: ${mostRecentDate}`)
-      const response = await fetch(`/api/stats/${mostRecentDate}`)
+      console.log(`Fetching stats for date: ${latestDate}`)
+      const response = await fetch(`/api/stats/${latestDate}`)
       if (!response.ok) throw new Error(`API returned ${response.status}: ${await response.text()}`)
 
       const newStats = hydrate(await response.json())

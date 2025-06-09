@@ -3,6 +3,7 @@ import { dayNames } from '../constants'
 import type { PuzzleStat } from '../types'
 
 export const analyzeStats = (stats: PuzzleStat[]) => {
+  console.time('analyzeStats')
   const byDayOfWeek = Object.keys(dayNames).reduce((acc, i) => {
     const filteredStats = stats.filter(stat => stat.date.dayOfWeek().value() === Number(i))
     acc[i] = summarizeStats(filteredStats)
@@ -28,26 +29,11 @@ export const analyzeStats = (stats: PuzzleStat[]) => {
     return acc
   }, {} as Record<string, Array<{ date: any; average: number }>>)
 
-  const streaks = identifyStreaks(stats)
-  const trailingAveragesByStreak = streaks.map(streak => ({
-    streakId: streak.id,
-    startDate: streak.startDate,
-    endDate: streak.endDate,
-    trailingAverages: calculateTrailingAverages(streak.stats, streak.startDate, streak.endDate),
-  }))
-
-  const trailingAveragesByStreakAndDay = Object.keys(dayNames).reduce((acc, i) => {
-    acc[i] = streaks.map(streak => ({
-      streakId: streak.id,
-      startDate: streak.startDate,
-      endDate: streak.endDate,
-      trailingAverages: calculateTrailingAverages(streak.stats, streak.startDate, streak.endDate, Number(i)),
-    }))
-    return acc
-  }, {} as Record<string, Array<{ streakId: number; startDate: LocalDate; endDate: LocalDate; trailingAverages: Array<{ date: LocalDate; average: number }> }>>)
+  const summary = summarizeStats(stats)
+  console.timeEnd('analyzeStats')
 
   return {
-    ...summarizeStats(stats),
+    ...summary,
     byDayOfWeek,
     maxTime,
     minDate,
@@ -55,9 +41,6 @@ export const analyzeStats = (stats: PuzzleStat[]) => {
     years,
     trailingAverages,
     trailingAveragesByDay,
-    streaks,
-    trailingAveragesByStreak,
-    trailingAveragesByStreakAndDay,
   }
 }
 
@@ -65,8 +48,8 @@ const summarizeStats = (stats: PuzzleStat[]): StatsSummary => {
   return {
     total: total(stats),
     average: average(stats),
-    best: bestTime(stats),
-    mostRecent: mostRecent(stats),
+    best: best(stats),
+    latest: latest(stats),
     stats,
   }
 }
@@ -80,106 +63,69 @@ const average = (stats: PuzzleStat[]) => {
   return Math.round(total(stats) / stats.length)
 }
 
-const bestTime = (stats: PuzzleStat[]) => {
+const best = (stats: PuzzleStat[]) => {
   if (stats.length === 0) return undefined
   return stats.reduce((min, stat) => (stat.time < min.time ? stat : min), stats[0])
 }
 
-const mostRecent = (stats: PuzzleStat[]) => {
+const latest = (stats: PuzzleStat[]) => {
   if (stats.length === 0) return undefined
-  return stats.reduce(
-    (mostRecent, stat) => (stat.dateSolved.isAfter(mostRecent.dateSolved) ? stat : mostRecent),
-    stats[0]
-  )
+  return stats.reduce((max, stat) => (stat.dateSolved.isAfter(max.dateSolved) ? stat : max), stats[0])
 }
 
 const calculateTrailingAverages = (stats: PuzzleStat[], minDate: LocalDate, maxDate: LocalDate, dayOfWeek?: number) => {
   const trailingAverages: Array<{ date: LocalDate; average: number }> = []
 
-  // Sort stats by date for efficient lookups
-  const sortedStats = [...stats]
-    .filter(stat => dayOfWeek === undefined || stat.date.dayOfWeek().value() === dayOfWeek)
+  // Filter and sort stats once
+  const filteredStats = stats
+    .filter(stat => {
+      const matchesDayOfWeek = dayOfWeek === undefined || stat.date.dayOfWeek().value() === dayOfWeek
+      const withinDateRange = !stat.dateSolved.isBefore(minDate.minusYears(3)) && !stat.dateSolved.isAfter(maxDate)
+      return matchesDayOfWeek && withinDateRange
+    })
     .sort((a, b) => (a.dateSolved.isBefore(b.dateSolved) ? -1 : 1))
 
-  // Generate cumulative averages for each day in the range
-  let currentDate = minDate
+  if (filteredStats.length === 0) return trailingAverages
 
-  while (currentDate.isBefore(maxDate) || currentDate.isEqual(maxDate)) {
-    // Get all stats from the beginning up to current date
-    const cumulativeStats = sortedStats.filter(
-      stat => !stat.dateSolved.isAfter(currentDate) && stat.dateSolved.isAfter(currentDate.minusYears(3))
-    )
+  // Process each unique date where we have data
+  let runningSum = 0
+  let runningCount = 0
+  let currentIndex = 0
 
-    if (cumulativeStats.length > 0) {
-      const avg = average(cumulativeStats)
-      if (avg !== undefined) {
-        trailingAverages.push({
-          date: currentDate,
-          average: avg,
-        })
-      }
+  for (const stat of filteredStats) {
+    const statDate = stat.dateSolved
+
+    // Skip if this date is before our analysis range
+    if (statDate.isBefore(minDate)) continue
+
+    // Remove stats older than 3 years from running totals
+    const threeYearsAgo = statDate.minusYears(3)
+    while (currentIndex < filteredStats.length && filteredStats[currentIndex].dateSolved.isBefore(threeYearsAgo)) {
+      runningSum -= filteredStats[currentIndex].time
+      runningCount--
+      currentIndex++
     }
 
-    currentDate = currentDate.plusDays(1)
+    // Add current stat to running totals
+    runningSum += stat.time
+    runningCount++
+
+    // Calculate and store the average for this date
+    if (runningCount > 0) {
+      trailingAverages.push({
+        date: statDate,
+        average: Math.round(runningSum / runningCount),
+      })
+    }
   }
 
   return trailingAverages
-}
-
-const identifyStreaks = (
-  stats: PuzzleStat[],
-  maxGapDays: number = 14
-): Array<{ id: number; startDate: LocalDate; endDate: LocalDate; stats: PuzzleStat[] }> => {
-  if (stats.length === 0) return []
-
-  // Sort stats by date
-  const sortedStats = [...stats].sort((a, b) => a.dateSolved.compareTo(b.dateSolved))
-
-  const streaks: Array<{ id: number; startDate: LocalDate; endDate: LocalDate; stats: PuzzleStat[] }> = []
-  let currentStreak: PuzzleStat[] = [sortedStats[0]]
-  let streakId = 0
-
-  for (let i = 1; i < sortedStats.length; i++) {
-    const currentStat = sortedStats[i]
-    const previousStat = sortedStats[i - 1]
-
-    // Calculate days between puzzles
-    const daysBetween = previousStat.dateSolved.until(currentStat.dateSolved).days()
-
-    if (daysBetween <= maxGapDays) {
-      // Continue current streak
-      currentStreak.push(currentStat)
-    } else {
-      // End current streak and start new one
-      if (currentStreak.length > 10) {
-        streaks.push({
-          id: streakId++,
-          startDate: currentStreak[0].dateSolved,
-          endDate: currentStreak[currentStreak.length - 1].dateSolved,
-          stats: currentStreak,
-        })
-      }
-      currentStreak = [currentStat]
-    }
-  }
-
-  // Don't forget the last streak
-  if (currentStreak.length > 0) {
-    streaks.push({
-      id: streakId,
-      startDate: currentStreak[0].dateSolved,
-      endDate: currentStreak[currentStreak.length - 1].dateSolved,
-      stats: currentStreak,
-    })
-  }
-
-  return streaks
 }
 
 type StatsSummary = {
   total: number
   average?: number
   best?: PuzzleStat
-  mostRecent?: PuzzleStat
+  latest?: PuzzleStat
   stats: PuzzleStat[]
 }
