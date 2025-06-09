@@ -161,15 +161,16 @@ export function PuzzleChart({ stats, selectedDay }: Props) {
           <g>
             {stats
               .sort((a, b) => {
-                // Sort hovered items last (to render on top)
-                const aIsHovered = tooltip?.stat === a
-                const bIsHovered = tooltip?.stat === b
-                if (aIsHovered !== bIsHovered) return aIsHovered ? 1 : -1
+                // Sort hovered item last (to render on top)
+                if (tooltip?.stat === a) return 1
+                if (tooltip?.stat === b) return -1
 
-                // Sort unselected items first (false < true), selected items last
-                const aIsSelected = selectedDay === null || selectedDay === a.date.dayOfWeek().value()
-                const bIsSelected = selectedDay === null || selectedDay === b.date.dayOfWeek().value()
-                return Number(aIsSelected) - Number(bIsSelected)
+                if (selectedDay === null) return 0 // No selection, keep original order
+
+                // Sort selected items last (to render on top of unselected)
+                if (selectedDay === a.date.dayOfWeek().value()) return 1
+                if (selectedDay === b.date.dayOfWeek().value()) return -1
+                return 0
               })
               .map((stat, i) => {
                 const isHovered = tooltip?.stat === stat
