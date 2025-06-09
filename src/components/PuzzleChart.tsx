@@ -53,6 +53,7 @@ export function PuzzleChart({ stats, selectedDay }: Props) {
   // Get data ranges
   const logMin = Math.log(minTimeForScale)
   const logMax = Math.log(maxTime)
+  console.log({ maxTime, logMax })
 
   const scaleX = (time: number) => ((Math.log(time) - logMin) / (logMax - logMin)) * plotWidth
 
@@ -264,9 +265,9 @@ export function PuzzleChart({ stats, selectedDay }: Props) {
                 height="35"
               >
                 <div className="flex flex-col items-end">
-                  <div className="font-bold text-xs text-gray-800">{tick.year}</div>
+                  <div className="font-bold font-serif text-xs text-gray-800">{tick.year}</div>
                   {tick.count > 0 ? (
-                    <div className="text-gray-500 text-2xs">
+                    <div className="text-gray-500 font-mono text-3xs">
                       {Math.floor(tick.avgTime / 60)}:{(tick.avgTime % 60).toString().padStart(2, '0')}
                     </div>
                   ) : null}
@@ -333,7 +334,7 @@ export function PuzzleChart({ stats, selectedDay }: Props) {
         {/* Tooltip */}
         {tooltip && (
           <div
-            className="absolute bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none z-10 flex flex-col gap-1"
+            className="absolute bg-white border font-mono text-xs px-2 py-1 rounded shadow-lg pointer-events-none z-10 flex flex-col gap-1 whitespace-nowrap"
             style={{
               left: `${(tooltip.x / chartWidth) * 100}%`,
               top: `${((tooltip.y - 10) / chartHeight) * 100}%`,

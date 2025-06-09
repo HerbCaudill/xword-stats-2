@@ -10,7 +10,7 @@ export const analyzeStats = (stats: PuzzleStat[]) => {
     return acc
   }, {} as Record<string, StatsSummary>)
 
-  const maxTime = Math.max(...stats.map(stat => stat.time))
+  const maxTime = Math.max(...stats.map(stat => stat.time)) + 30 * 60
   const minDate = stats
     .reduce((min, stat) => (stat.dateSolved.isBefore(min.dateSolved) ? stat : min))
     .dateSolved.withDayOfYear(1) // first day of year
