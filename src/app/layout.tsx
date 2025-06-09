@@ -14,7 +14,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${plexSans.variable} ${plexSerif.variable} ${plexMono.variable} antialiased`}>{children}</body>
+      <body
+        className={`${plexSans.variable} ${plexSerif.variable} ${plexMono.variable} antialiased overflow-hidden  select-none`}
+      >
+        {children}
+      </body>
     </html>
   )
 }

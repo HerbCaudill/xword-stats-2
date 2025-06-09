@@ -21,9 +21,29 @@
 }
 
 @layer base {
+  html {
+    overflow: hidden;
+    height: 100%;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
+
   body {
-    background: var(--background);
-    color: var(--foreground);
-    font-family: var(--font-sans);
+    overflow: hidden;
+    height: 100%;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    touch-action: pan-x;
+  }
+
+  * {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
   }
 }

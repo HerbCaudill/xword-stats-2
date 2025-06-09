@@ -17,7 +17,7 @@ const color = {
 const chartHeight = 750
 const chartWidth = 500
 const pad = { top: 20, right: 10, bottom: 10, left: 45 }
-const minTimeForScale = 180 // start x axis at 3 minutes
+const minTime = 180 // start x axis at 3 minutes
 
 export function PuzzleChart({ stats, selectedDay }: Props) {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
@@ -51,7 +51,7 @@ export function PuzzleChart({ stats, selectedDay }: Props) {
   const plotHeight = chartHeight - pad.top - pad.bottom
 
   // Get data ranges
-  const logMin = Math.log(minTimeForScale)
+  const logMin = Math.log(minTime)
   const logMax = Math.log(maxTime)
   console.log({ maxTime, logMax })
 
@@ -79,15 +79,7 @@ export function PuzzleChart({ stats, selectedDay }: Props) {
   })
 
   // X-axis: Logarithmic scale with nice round numbers (1, 2, 5, 10, 20, 50 minutes, etc.)
-  const logTickValues = []
-  for (let power = 0; power <= 4; power++) {
-    for (const base of [1, 2, 5]) {
-      const value = base * Math.pow(10, power) * 60 // Convert to seconds
-      if (value >= minTimeForScale && value <= maxTime) {
-        logTickValues.push(value)
-      }
-    }
-  }
+  const logTickValues = [5, 10, 15, 30, 60].map(min => min * 60) // Convert to seconds
 
   const xTicks = logTickValues.map(time => ({ x: scaleX(time), time }))
 
@@ -169,9 +161,14 @@ export function PuzzleChart({ stats, selectedDay }: Props) {
           <g>
             {stats
               .sort((a, b) => {
+                // Sort hovered items last (to render on top)
+                const aIsHovered = tooltip?.stat === a
+                const bIsHovered = tooltip?.stat === b
+                if (aIsHovered !== bIsHovered) return aIsHovered ? 1 : -1
+
+                // Sort unselected items first (false < true), selected items last
                 const aIsSelected = selectedDay === null || selectedDay === a.date.dayOfWeek().value()
                 const bIsSelected = selectedDay === null || selectedDay === b.date.dayOfWeek().value()
-                // Sort unselected items first (false < true), selected items last
                 return Number(aIsSelected) - Number(bIsSelected)
               })
               .map((stat, i) => {
@@ -182,6 +179,18 @@ export function PuzzleChart({ stats, selectedDay }: Props) {
 
                 return (
                   <g key={i}>
+                    {/* Highlight selected */}
+                    {isHovered && (
+                      <circle
+                        cx={pad.left + scaleX(stat.time)}
+                        cy={pad.top + scaleY(stat.dateSolved)}
+                        r={getPointRadius(dayOfWeek, isHovered, isBest) + 4}
+                        fill="white"
+                        stroke="#000000"
+                        strokeWidth={1}
+                        style={{ pointerEvents: 'none' }}
+                      />
+                    )}
                     <circle
                       cx={pad.left + scaleX(stat.time)}
                       cy={pad.top + scaleY(stat.dateSolved)}
@@ -196,17 +205,8 @@ export function PuzzleChart({ stats, selectedDay }: Props) {
                       }}
                       onClick={() => showTooltip(stat)}
                     />
-                    {isHovered && (
-                      <circle
-                        cx={pad.left + scaleX(stat.time)}
-                        cy={pad.top + scaleY(stat.dateSolved)}
-                        r={getPointRadius(dayOfWeek, isHovered, isBest) + 2}
-                        fill="none"
-                        stroke={'#000000'}
-                        strokeWidth={4}
-                        style={{ pointerEvents: 'none' }}
-                      />
-                    )}
+
+                    {/* Highlight best time */}
                     {isBest && (
                       <circle
                         cx={pad.left + scaleX(stat.time)}
@@ -343,22 +343,22 @@ export function PuzzleChart({ stats, selectedDay }: Props) {
           >
             <div>{tooltip.stat.dateSolved.toString()}</div>
             <div>
-              {tooltip.stat === best ? <span>🏆</span> : null}
+              {tooltip.stat === best ? <span>🏆 </span> : null}
               {formatTime(tooltip.stat.time)}
             </div>
           </div>
         )}
       </div>
       {latest && best ? (
-        <div className="text-sm text-gray-800 px-3 flex gap-2">
+        <div className="text-xs text-gray-800 px-3 flex gap-2">
           {/* most recent */}
           <span>
-            Latest: <strong>{formatTime(latest.time)}</strong>
+            Latest <strong className="font-mono">{formatTime(latest.time)}</strong>
           </span>
 
           {/* best */}
           <span>
-            Best: <strong>{formatTime(best.time)}</strong>
+            Best <strong className="font-mono">{formatTime(best.time)}</strong>
           </span>
         </div>
       ) : null}

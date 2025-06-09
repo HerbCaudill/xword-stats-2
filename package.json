@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "stats": "NODE_NO_WARNINGS=1 node ./src/scripts/persistStats.ts",
@@ -13,6 +13,7 @@
   "dependencies": {
     "@js-joda/core": "^5.6.5",
     "@js-joda/locale_en-us": "^4.15.1",
+    "@use-gesture/react": "^10.3.1",
     "classnames": "^2.5.1",
     "dotenv": "^16.5.0",
     "next": "15.3.3",

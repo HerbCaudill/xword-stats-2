@@ -7,6 +7,21 @@ import { getColor } from './getColor'
 export function DayLegend({ selectedDay, onDaySelect }: Props) {
   return (
     <div className="flex flex-wrap gap-1 p-2">
+      <div
+        className={cx(`flex items-center gap-1 cursor-pointer p-1 rounded hover:bg-gray-100 border`, {
+          'border-white': selectedDay !== null,
+          'border-gray-300': selectedDay === null,
+        })}
+        onClick={() => onDaySelect(null)}
+      >
+        <div
+          className="w-3 h-3 rounded-full"
+          style={{
+            backgroundColor: selectedDay === null ? '#666666' : '#cccccc',
+          }}
+        />
+        <span className="text-xs">All</span>
+      </div>
       {Object.entries(dayNames).map(([dayNum, dayName]) => (
         <div
           key={dayNum}
