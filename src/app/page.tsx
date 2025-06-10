@@ -14,11 +14,11 @@ export default function HistoryPage() {
   const bind = useDrag(
     ({ swipe: [swipeX] }) => {
       if (swipeX === -1) {
-        // Swipe left - go to previous day
-        navigateToPreviousDay()
-      } else if (swipeX === 1) {
-        // Swipe right - go to next day
+        // Swipe left - go to next day
         navigateToNextDay()
+      } else if (swipeX === 1) {
+        // Swipe right - go to previous day
+        navigateToPreviousDay()
       }
     },
     {
